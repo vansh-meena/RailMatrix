@@ -18,12 +18,11 @@ public class StationDAO {
 
     public void addStation(Station station) {
         try {
-            String query = "INSERT INTO stations(station_id, station_name, city) VALUES (?, ?, ?)";
+            String query = "INSERT INTO stations(station_name, city) VALUES (?, ?)";
             PreparedStatement ps = con.prepareStatement(query);
 
-            ps.setInt(1, station.getStationId());
-            ps.setString(2, station.getStationName());
-            ps.setString(3, station.getStationCity());
+            ps.setString(1, station.getStationName());
+            ps.setString(2, station.getStationCity());
 
             ps.executeUpdate();
             System.out.println("Station added successfully!");

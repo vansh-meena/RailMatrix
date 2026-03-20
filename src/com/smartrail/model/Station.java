@@ -7,16 +7,12 @@ public class Station {
 
     public Station() {}
 
-    public Station(int stationId, String stationName, String stationCity) {
-        this.stationId = stationId;
+    public Station( String stationName, String stationCity) {
         this.stationName = stationName;
         this.stationCity = stationCity;
     }
 
     //SETTER FUNCTIONS
-    public void setStationId(int stationId) {
-        this.stationId = stationId;
-    }
     public void setStationName(String stationName) {
         this.stationName = stationName;
     }

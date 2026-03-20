@@ -1,7 +1,10 @@
 package com.smartrail.main;
 
+import java.util.*;
 import com.smartrail.dao.StationDAO;
+import com.smartrail.dao.TrainDAO;
 import com.smartrail.model.Station;
+import com.smartrail.model.Trains;
 import com.smartrail.util.DBConnection;
 
 import java.sql.Connection;
@@ -11,17 +14,80 @@ public class RailMatrixApp {
     public static void main(String[] args) throws SQLException {
         try {
             Connection con = DBConnection.getConnection();
-
             StationDAO dao = new StationDAO(con);
-            //INSERTING
-//            Station s1 = new Station(1001, "Delhi Junction", "Delhi");
-//            Station s2 = new Station(1002, "Jaipur Junction", "Jaipur");
-//
-//            dao.addStation(s1);
-//            dao.addStation(s2);
-            //FETCHING
-            System.out.println("\nAll Stations:");
-            dao.getAllStations();
+            TrainDAO trainDAO = new TrainDAO(con);
+
+            Scanner sc = new Scanner(System.in);
+
+            while (true) {
+                System.out.println("\n===== RailMatrix Menu =====");
+                System.out.println("1. Add Station");
+                System.out.println("2. View All Stations");
+                System.out.println("3. Add Train");
+                System.out.println("4. View Trains");
+                System.out.println("5. Check Available Seats");
+                System.out.println("6. Exit");
+                System.out.print("Enter choice: ");
+
+                int choice = sc.nextInt();
+                sc.nextLine(); // clear buffer
+
+                switch (choice) {
+
+                    case 1:
+                        System.out.print("Enter Station Name: ");
+                        String station_name = sc.nextLine();
+
+                        System.out.print("Enter City: ");
+                        String city = sc.nextLine();
+
+                        Station s = new Station(station_name, city);
+                        dao.addStation(s);
+                        break;
+
+                    case 2:
+                        System.out.println("\nAll Stations:");
+                        dao.getAllStations();
+                        break;
+
+                    case 3:
+                        System.out.print("Enter Train Name: ");
+                        String tname = sc.nextLine();
+
+                        System.out.print("Enter Departure: ");
+                        String dep = sc.nextLine();
+
+                        System.out.print("Enter Destination: ");
+                        String dest = sc.nextLine();
+
+                        System.out.print("Enter Total Seats: ");
+                        int seats = sc.nextInt();
+                        sc.nextLine();
+
+                        Trains t = new Trains(tname, dep, dest, seats);
+                        trainDAO.addTrain(t);
+                        break;
+
+                    case 4:
+                        System.out.println("\nAll Trains:");
+                        TrainDAO.getAllTrains();
+                        break;
+
+                    case 5:
+                        System.out.print("Enter Train ID: ");
+                        int id = sc.nextInt();
+
+                        trainDAO.getAvailableSeats(id);
+                        break;
+
+                    case 6:
+                        System.out.println("Exiting...");
+                        return;
+
+                    default:
+                        System.out.println("Invalid choice!");
+                }
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
