@@ -1,6 +1,8 @@
 package com.smartrail.main;
 
 import java.util.*;
+
+import com.smartrail.dao.BookingDAO;
 import com.smartrail.dao.StationDAO;
 import com.smartrail.dao.TrainDAO;
 import com.smartrail.model.Station;
@@ -16,6 +18,7 @@ public class RailMatrixApp {
             Connection con = DBConnection.getConnection();
             StationDAO dao = new StationDAO(con);
             TrainDAO trainDAO = new TrainDAO(con);
+            BookingDAO bookingDAO = new BookingDAO(con);
 
             Scanner sc = new Scanner(System.in);
 
@@ -25,8 +28,9 @@ public class RailMatrixApp {
                 System.out.println("2. View All Stations");
                 System.out.println("3. Add Train");
                 System.out.println("4. View Trains");
-                System.out.println("5. Check Available Seats");
-                System.out.println("6. Exit");
+                System.out.println("5. Book Seats");
+                System.out.println("6. Check Available Seats");
+                System.out.println("7. Exit");
                 System.out.print("Enter choice: ");
 
                 int choice = sc.nextInt();
@@ -50,7 +54,7 @@ public class RailMatrixApp {
                         dao.getAllStations();
                         break;
 
-                    case 3:
+                    case 3: {
                         System.out.print("Enter Train Name: ");
                         String tname = sc.nextLine();
 
@@ -67,20 +71,31 @@ public class RailMatrixApp {
                         Trains t = new Trains(tname, dep, dest, seats);
                         trainDAO.addTrain(t);
                         break;
+                    }
 
                     case 4:
                         System.out.println("\nAll Trains:");
                         TrainDAO.getAllTrains();
                         break;
 
-                    case 5:
+                    case 5: {
+                        System.out.print("Enter Train ID: ");
+                        int trainId = sc.nextInt();
+
+                        System.out.print("Enter number of seats: ");
+                        int seats = sc.nextInt();
+
+                        bookingDAO.bookSeats(trainId, seats);
+                        break;
+                    }
+
+                    case 6:
                         System.out.print("Enter Train ID: ");
                         int id = sc.nextInt();
-
                         trainDAO.getAvailableSeats(id);
                         break;
 
-                    case 6:
+                    case 7:
                         System.out.println("Exiting...");
                         return;
 
