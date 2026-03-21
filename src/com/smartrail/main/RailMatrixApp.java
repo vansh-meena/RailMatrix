@@ -33,7 +33,8 @@ public class RailMatrixApp {
                 System.out.println("4. View Trains");
                 System.out.println("5. Book Seats");
                 System.out.println("6. Check Available Seats");
-                System.out.println("7. Exit");
+                System.out.println("7. Cancel Booking");
+                System.out.println("8. Exit");
                 System.out.print("Enter choice: ");
 
                 int choice = sc.nextInt();
@@ -113,8 +114,14 @@ public class RailMatrixApp {
                         int id = sc.nextInt();
                         trainDAO.getAvailableSeats(id);
                         break;
-
                     case 7:
+                        System.out.print("Enter Booking ID to cancel: ");
+                        int bookingId = sc.nextInt();
+
+                        bookingDAO.cancelBooking(bookingId);
+                        break;
+
+                    case 8:
                         System.out.println("Exiting...");
                         return;
 
