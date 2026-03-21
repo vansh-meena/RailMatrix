@@ -3,8 +3,10 @@ package com.smartrail.main;
 import java.util.*;
 
 import com.smartrail.dao.BookingDAO;
+import com.smartrail.dao.PassengerDAO;
 import com.smartrail.dao.StationDAO;
 import com.smartrail.dao.TrainDAO;
+import com.smartrail.model.Passenger;
 import com.smartrail.model.Station;
 import com.smartrail.model.Trains;
 import com.smartrail.util.DBConnection;
@@ -19,6 +21,7 @@ public class RailMatrixApp {
             StationDAO dao = new StationDAO(con);
             TrainDAO trainDAO = new TrainDAO(con);
             BookingDAO bookingDAO = new BookingDAO(con);
+            PassengerDAO passengerDAO = new PassengerDAO(con);
 
             Scanner sc = new Scanner(System.in);
 
@@ -78,16 +81,32 @@ public class RailMatrixApp {
                         TrainDAO.getAllTrains();
                         break;
 
-                    case 5: {
+                    case 5:
+                        sc.nextLine(); // clear buffer
+
+                        System.out.print("Enter Passenger Name: ");
+                        String name = sc.nextLine();
+
+                        System.out.print("Enter Age: ");
+                        int age = sc.nextInt();
+                        sc.nextLine();
+
+                        System.out.print("Enter Gender: ");
+                        String gender = sc.nextLine();
+
+                        // Create passenger
+                        Passenger p = new Passenger(name, age, gender);
+                        int passengerId = passengerDAO.addPassenger(p);
+
+                        // Now booking
                         System.out.print("Enter Train ID: ");
                         int trainId = sc.nextInt();
 
                         System.out.print("Enter number of seats: ");
                         int seats = sc.nextInt();
 
-                        bookingDAO.bookSeats(trainId, seats);
+                        bookingDAO.bookSeats(trainId, passengerId, seats);
                         break;
-                    }
 
                     case 6:
                         System.out.print("Enter Train ID: ");

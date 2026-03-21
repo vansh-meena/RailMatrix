@@ -9,7 +9,7 @@ public class BookingDAO {
         this.con = con;
     }
 
-    public void bookSeats(int trainId, int seats) {
+    public void bookSeats(int trainId, int passengerId, int seats) {
         try {
             // Step 1: Check available seats
             String checkQuery = "SELECT available_seats FROM trains WHERE train_id = ?";
@@ -24,10 +24,12 @@ public class BookingDAO {
                 if (available >= seats) {
 
                     // Step 2: Insert booking
-                    String insertQuery = "INSERT INTO bookings(train_id, seats_booked) VALUES (?, ?)";
+                    String insertQuery = "INSERT INTO bookings(train_id, passenger_id, seats_booked) VALUES (?, ?, ?)";
                     PreparedStatement ps2 = con.prepareStatement(insertQuery);
                     ps2.setInt(1, trainId);
-                    ps2.setInt(2, seats);
+                    ps2.setInt(2, passengerId);
+                    ps2.setInt(3, seats);
+
                     ps2.executeUpdate();
 
                     // Step 3: Update seats
@@ -51,4 +53,6 @@ public class BookingDAO {
             e.printStackTrace();
         }
     }
+
+    
 }
