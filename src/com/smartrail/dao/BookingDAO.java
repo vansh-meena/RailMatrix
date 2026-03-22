@@ -25,12 +25,19 @@ public class BookingDAO {
 
                     // Step 2: Insert booking
                     String insertQuery = "INSERT INTO bookings(train_id, passenger_id, seats_booked) VALUES (?, ?, ?)";
-                    PreparedStatement ps2 = con.prepareStatement(insertQuery);
+                    PreparedStatement ps2 = con.prepareStatement(insertQuery, Statement.RETURN_GENERATED_KEYS);
                     ps2.setInt(1, trainId);
                     ps2.setInt(2, passengerId);
                     ps2.setInt(3, seats);
 
                     ps2.executeUpdate();
+
+                    ResultSet rs2 = ps2.getGeneratedKeys();
+                    int bookingId = -1;
+
+                    if (rs2.next()) {
+                        bookingId = rs2.getInt(1);
+                    }
 
                     // Step 3: Update seats
                     String updateQuery = "UPDATE trains SET available_seats = available_seats - ? WHERE train_id = ?";
@@ -39,7 +46,41 @@ public class BookingDAO {
                     ps3.setInt(2, trainId);
                     ps3.executeUpdate();
 
-                    System.out.println("✅ Booking successful!");
+                    //FETCHING PASSENGER NAME
+                    String pQuery = "SELECT passenger_name FROM passengers WHERE passenger_id = ?";
+                    PreparedStatement psP = con.prepareStatement(pQuery);
+                    psP.setInt(1, passengerId);
+
+                    ResultSet rsP = psP.executeQuery();
+                    String passengerName = "";
+
+                    if (rsP.next()) {
+                        passengerName = rsP.getString("passenger_name");
+                    }
+
+                    //FETCHING TRAIN DETAILS
+                    String tQuery = "SELECT train_name, departure, destination FROM trains WHERE train_id = ?";
+                    PreparedStatement psT = con.prepareStatement(tQuery);
+                    psT.setInt(1, trainId);
+
+                    ResultSet rsT = psT.executeQuery();
+
+                    String trainName = "", departure = "", destination = "";
+
+                    if (rsT.next()) {
+                        trainName = rsT.getString("train_name");
+                        departure = rsT.getString("departure");
+                        destination = rsT.getString("destination");
+                    }
+
+//                    System.out.println("✅ Booking successful!");
+                    System.out.println("\n===== BOOKING CONFIRMED =====");
+                    System.out.println("Booking ID: " + bookingId);
+                    System.out.println("Passenger: " + passengerName);
+                    System.out.println("Train: " + trainName);
+                    System.out.println("Route: " + departure + " -> " + destination);
+                    System.out.println("Seats Booked: " + seats);
+                    System.out.println("============================");
 
                 } else {
                     System.out.println("❌ Not enough seats available!");
