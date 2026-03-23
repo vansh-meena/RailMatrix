@@ -28,14 +28,15 @@ public class RailMatrixApp {
             while (true) {
                 System.out.println("\n===== RailMatrix Menu =====");
                 System.out.println("1. Add Station");
-                System.out.println("2. View All Stations");
+                System.out.println("2. View Stations");
                 System.out.println("3. Add Train");
                 System.out.println("4. View Trains");
-                System.out.println("5. Book Seats");
+                System.out.println("5. Book Ticket");
                 System.out.println("6. Check Available Seats");
                 System.out.println("7. Cancel Booking");
                 System.out.println("8. View Booking History");
-                System.out.println("9. Exit");
+                System.out.println("9. Search Train by Route");
+                System.out.println("10. Exit");
                 System.out.print("Enter choice: ");
 
                 int choice = sc.nextInt();
@@ -96,16 +97,25 @@ public class RailMatrixApp {
                         System.out.print("Enter Gender: ");
                         String gender = sc.nextLine();
 
-                        // Create passenger
-                        Passenger p = new Passenger(name, age, gender);
-                        int passengerId = passengerDAO.addPassenger(p);
-
-                        // Now booking
                         System.out.print("Enter Train ID: ");
                         int trainId = sc.nextInt();
 
                         System.out.print("Enter number of seats: ");
                         int seats = sc.nextInt();
+
+                        // VALIDATION FIRST
+                        if (seats <= 0) {
+                            System.out.println("Invalid number of seats!");
+                            break;
+                        }
+                        if (trainId <= 0) {
+                            System.out.println("Invalid Train ID!");
+                            break;
+                        }
+
+                        // Put into DB
+                        Passenger p = new Passenger(name, age, gender);
+                        int passengerId = passengerDAO.addPassenger(p);
 
                         bookingDAO.bookSeats(trainId, passengerId, seats);
                         break;
@@ -127,6 +137,18 @@ public class RailMatrixApp {
                         break;
 
                     case 9:
+                        sc.nextLine(); // clear buffer
+
+                        System.out.print("Enter Source: ");
+                        String source = sc.nextLine();
+
+                        System.out.print("Enter Destination: ");
+                        String destination = sc.nextLine();
+
+                        trainDAO.searchTrain(source, destination);
+                        break;
+
+                    case 10:
                         System.out.println("Exiting...");
                         return;
 

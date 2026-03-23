@@ -144,7 +144,10 @@ public class BookingDAO {
 
             System.out.println("\n===== BOOKING HISTORY =====");
 
+            boolean hasData = false;
+
             while (rs.next()) {
+                hasData = true;
                 System.out.println("-----------------------------------");
                 System.out.println("Booking ID: " + rs.getInt("booking_id"));
                 System.out.println("Passenger: " + rs.getString("passenger_name"));
@@ -152,6 +155,10 @@ public class BookingDAO {
                 System.out.println("Route: " + rs.getString("departure") + " -> " + rs.getString("destination"));
                 System.out.println("Seats: " + rs.getInt("seats_booked"));
                 System.out.println("Time: " + rs.getTimestamp("booking_time"));
+            }
+
+            if (!hasData) {
+                System.out.println("No bookings found.");
             }
 
             System.out.println("-----------------------------------");
