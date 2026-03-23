@@ -131,4 +131,33 @@ public class BookingDAO {
             e.printStackTrace();
         }
     }
+
+    public void viewBookingHistory() {
+        try {
+            String query = "SELECT b.booking_id, p.passenger_name, t.train_name, t.departure, t.destination, b.seats_booked, b.booking_time " +
+                    "FROM bookings b " +
+                    "JOIN passengers p ON b.passenger_id = p.passenger_id " +
+                    "JOIN trains t ON b.train_id = t.train_id";
+
+            Statement st = con.createStatement();
+            ResultSet rs = st.executeQuery(query);
+
+            System.out.println("\n===== BOOKING HISTORY =====");
+
+            while (rs.next()) {
+                System.out.println("-----------------------------------");
+                System.out.println("Booking ID: " + rs.getInt("booking_id"));
+                System.out.println("Passenger: " + rs.getString("passenger_name"));
+                System.out.println("Train: " + rs.getString("train_name"));
+                System.out.println("Route: " + rs.getString("departure") + " -> " + rs.getString("destination"));
+                System.out.println("Seats: " + rs.getInt("seats_booked"));
+                System.out.println("Time: " + rs.getTimestamp("booking_time"));
+            }
+
+            System.out.println("-----------------------------------");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

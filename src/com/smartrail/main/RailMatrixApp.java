@@ -34,7 +34,8 @@ public class RailMatrixApp {
                 System.out.println("5. Book Seats");
                 System.out.println("6. Check Available Seats");
                 System.out.println("7. Cancel Booking");
-                System.out.println("8. Exit");
+                System.out.println("8. View Booking History");
+                System.out.println("9. Exit");
                 System.out.print("Enter choice: ");
 
                 int choice = sc.nextInt();
@@ -122,6 +123,10 @@ public class RailMatrixApp {
                         break;
 
                     case 8:
+                        bookingDAO.viewBookingHistory();
+                        break;
+
+                    case 9:
                         System.out.println("Exiting...");
                         return;
 
