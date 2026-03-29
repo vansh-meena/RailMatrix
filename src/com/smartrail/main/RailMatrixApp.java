@@ -2,13 +2,14 @@ package com.smartrail.main;
 
 import java.util.*;
 
-import com.smartrail.dao.BookingDAO;
-import com.smartrail.dao.PassengerDAO;
-import com.smartrail.dao.StationDAO;
-import com.smartrail.dao.TrainDAO;
+import com.smartrail.dao.*;
 import com.smartrail.model.Passenger;
+import com.smartrail.model.Route;
 import com.smartrail.model.Station;
 import com.smartrail.model.Trains;
+import com.smartrail.dao.RouteDAO;
+import com.smartrail.service.GraphBuilder;
+import com.smartrail.service.ShortestPathService;
 import com.smartrail.util.DBConnection;
 
 import java.sql.Connection;
@@ -22,6 +23,7 @@ public class RailMatrixApp {
             TrainDAO trainDAO = new TrainDAO(con);
             BookingDAO bookingDAO = new BookingDAO(con);
             PassengerDAO passengerDAO = new PassengerDAO(con);
+            RouteDAO routeDAO = new RouteDAO(con);
 
             Scanner sc = new Scanner(System.in);
 
@@ -36,7 +38,9 @@ public class RailMatrixApp {
                 System.out.println("7. Cancel Booking");
                 System.out.println("8. View Booking History");
                 System.out.println("9. Search Train by Route");
-                System.out.println("10. Exit");
+                System.out.println("10. Test Routes Graph");
+                System.out.println("11. Find Shortest Route");
+                System.out.println("12. Exit");
                 System.out.print("Enter choice: ");
 
                 int choice = sc.nextInt();
@@ -148,7 +152,58 @@ public class RailMatrixApp {
                         trainDAO.searchTrain(source, destination);
                         break;
 
-                    case 10:
+                    case 10: {
+                        List<Route> routes = routeDAO.getAllRoutes();
+
+                        Map<Integer, String> stationMap = dao.getStationIdNameMap();
+
+                        System.out.println("Total routes fetched: " + routes.size());
+
+                        Map<Integer, List<Route>> graph = GraphBuilder.buildGraph(routes);
+
+                        for (Integer stationId : graph.keySet()) {
+
+                            String stationName = stationMap.get(stationId);
+                            System.out.println("From " + stationName + ":");
+
+                            for (Route r : graph.get(stationId)) {
+
+                                String destName = stationMap.get(r.getDestinationStationId());
+
+                                System.out.println("  -> " + destName +
+                                        " (" + r.getDistanceKm() + " km)");
+                            }
+                        }
+                        break;
+                    }
+
+                    case 11: {
+                        List<Route> routes = routeDAO.getAllRoutes();
+                        Map<Integer, List<Route>> graph = GraphBuilder.buildGraph(routes);
+                        Map<Integer, String> stationMap = dao.getStationIdNameMap();
+
+                        sc.nextLine(); // clear buffer
+
+                        System.out.print("Enter Source Station Name: ");
+                        String sourceName = sc.nextLine();
+
+                        System.out.print("Enter Destination Station Name: ");
+                        String destName = sc.nextLine();
+
+                        int sourceId = dao.getStationIdByName(sourceName);
+                        int destId = dao.getStationIdByName(destName);
+
+                        if (sourceId == -1 || destId == -1) {
+                            System.out.println("Invalid station name!");
+                            break;
+                        }
+
+                        ShortestPathService.findShortestPath(graph, sourceId, destId, stationMap);
+
+                        break;
+                    }
+
+                    case 12:
                         System.out.println("Exiting...");
                         return;
 
@@ -160,5 +215,7 @@ public class RailMatrixApp {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+
     }
 }
