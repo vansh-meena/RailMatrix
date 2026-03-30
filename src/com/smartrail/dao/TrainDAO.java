@@ -76,7 +76,7 @@ public class TrainDAO {
 
     public void searchTrain(String departure, String destination) {
         try {
-            String query = "SELECT * FROM trains WHERE departure = ? AND destination = ?";
+            String query = "SELECT * FROM trains WHERE LOWER(source) = LOWER(?) AND LOWER(destination) = LOWER(?)";
             PreparedStatement ps = con.prepareStatement(query);
 
             ps.setString(1, departure);
@@ -99,7 +99,7 @@ public class TrainDAO {
             }
 
             if (!found) {
-                System.out.println("❌ No trains found for this route.");
+                System.out.println("No trains found for this route.");
             }
 
             System.out.println("-----------------------------------");
