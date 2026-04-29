@@ -1,5 +1,6 @@
 package com.smartrail.main;
 
+import java.sql.Date;
 import java.util.*;
 
 import com.smartrail.dao.*;
@@ -17,6 +18,7 @@ import java.sql.SQLException;
 
 public class RailMatrixApp {
     public static void main(String[] args) throws SQLException {
+        int currentUserId = -1;
         try {
             Connection con = DBConnection.getConnection();
             StationDAO dao = new StationDAO(con);
@@ -65,21 +67,81 @@ public class RailMatrixApp {
                         break;
 
                     case 3: {
-                        System.out.print("Enter Train Name: ");
-                        String tname = sc.nextLine();
+                        if (currentUserId == -1) {
+                            System.out.println("Please login first!");
+                            break;
+                        }
 
-                        System.out.print("Enter Departure: ");
-                        String dep = sc.nextLine();
+                        // STEP 1: Input date
+                        System.out.print("Enter Train ID: ");
+                        int trainId = sc.nextInt();
+                        sc.nextLine(); // consume newline
 
-                        System.out.print("Enter Destination: ");
-                        String dest = sc.nextLine();
-
-                        System.out.print("Enter Total Seats: ");
-                        int seats = sc.nextInt();
+                        System.out.print("Enter number of passengers: ");
+                        int numberOfPassengers = sc.nextInt();
                         sc.nextLine();
 
-                        Trains t = new Trains(tname, dep, dest, seats);
-                        trainDAO.addTrain(t);
+                        System.out.print("Enter journey date (YYYY-MM-DD): ");
+                        String dateInput = sc.nextLine();
+                        Date journeyDate = Date.valueOf(dateInput);
+                        int totalSeats = trainDAO.getTotalSeats(trainId);
+
+                        // STEP 2: Ensure schedule exists
+                        trainDAO.createScheduleIfNotExists(trainId, journeyDate, totalSeats);
+
+                        // STEP 3: Check seats
+                        int availableSeats = trainDAO.getAvailableSeats(trainId, journeyDate);
+
+                        if (availableSeats < numberOfPassengers) {
+                            System.out.println("Not enough seats available!");
+                            return;
+                        }
+
+                        // STEP 4: Create booking
+                        int bookingId = bookingDAO.bookSeats(currentUserId, trainId, journeyDate, numberOfPassengers);
+
+                        // STEP 5: Add passengers
+                        int seatNo = 1;
+
+                        for (int i = 0; i < numberOfPassengers; i++) {
+
+                            System.out.print("Enter name: ");
+                            String name = sc.nextLine();
+
+                            System.out.print("Enter age: ");
+                            int age = sc.nextInt();
+                            sc.nextLine();
+
+                            System.out.print("Enter gender: ");
+                            String gender = sc.nextLine();
+
+                            Passenger p = new Passenger(name, age, gender);
+
+                            passengerDAO.addPassenger(p, bookingId, seatNo);
+
+                            seatNo++;
+                        }
+
+                        // STEP 6: Deduct seats
+                        trainDAO.updateSeats(trainId, journeyDate, numberOfPassengers);
+
+                        System.out.println("Booking Successful!");
+
+//                        System.out.print("Enter Train Name: ");
+//                        String tname = sc.nextLine();
+//
+//                        System.out.print("Enter Departure: ");
+//                        String dep = sc.nextLine();
+//
+//                        System.out.print("Enter Destination: ");
+//                        String dest = sc.nextLine();
+//
+//                        System.out.print("Enter Total Seats: ");
+//                        int seats = sc.nextInt();
+//                        sc.nextLine();
+//
+//                        Trains t = new Trains(tname, dep, dest, seats);
+//                        trainDAO.addTrain(t);
                         break;
                     }
 
@@ -104,6 +166,9 @@ public class RailMatrixApp {
                         System.out.print("Enter Train ID: ");
                         int trainId = sc.nextInt();
 
+                        System.out.println("Enter Journey Date: ");
+                        String journeyDate = sc.nextLine();
+
                         System.out.print("Enter number of seats: ");
                         int seats = sc.nextInt();
 
@@ -119,19 +184,26 @@ public class RailMatrixApp {
 
                         // Put into DB
                         Passenger p = new Passenger(name, age, gender);
-                        int passengerId = passengerDAO.addPassenger(p);
+                        int bookingId = 0;
+                        int seatNo = 1;
 
-                        bookingDAO.bookSeats(trainId, passengerId, seats);
+                        for (int i = 0; i < seats; i++) {
+                            passengerDAO.addPassenger(p, bookingId, seatNo);
+                            seatNo++; // next seat
+                        }
+                        int passengerId = passengerDAO.addPassenger(p, bookingId, seatNo);
+
+                        bookingDAO.bookSeats(trainId, passengerId, Date.valueOf(journeyDate), seats);
                         break;
 
                     case 6:
                         System.out.print("Enter Train ID: ");
                         int id = sc.nextInt();
-                        trainDAO.getAvailableSeats(id);
+                        trainDAO.getTotalSeats(id);
                         break;
                     case 7:
                         System.out.print("Enter Booking ID to cancel: ");
-                        int bookingId = sc.nextInt();
+                        bookingId = sc.nextInt();
 
                         bookingDAO.cancelBooking(bookingId);
                         break;
@@ -157,12 +229,13 @@ public class RailMatrixApp {
 
                         Map<Integer, String> stationMap = dao.getStationIdNameMap();
 
+                        System.out.println("-----------------------------------");
                         System.out.println("Total routes fetched: " + routes.size());
+                        System.out.println("-----------------------------------");
 
                         Map<Integer, List<Route>> graph = GraphBuilder.buildGraph(routes);
 
                         for (Integer stationId : graph.keySet()) {
-
                             String stationName = stationMap.get(stationId);
                             System.out.println("From " + stationName + ":");
 
@@ -173,6 +246,7 @@ public class RailMatrixApp {
                                 System.out.println("  -> " + destName +
                                         " (" + r.getDistanceKm() + " km)");
                             }
+                            System.out.println("-----------------------------------");
                         }
                         break;
                     }

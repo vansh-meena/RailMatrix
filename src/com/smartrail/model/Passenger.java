@@ -1,17 +1,27 @@
 package com.smartrail.model;
 
 public class Passenger {
-    private String passenger_name;
+
+    private int passengerId;
+    private String passengerName;
     private int age;
     private String gender;
 
-    public Passenger(String passenger_name, int age, String gender) {
-        this.passenger_name = passenger_name;
+    public Passenger(String passengerName, int age, String gender) {
+        this.passengerName = passengerName;
         this.age = age;
         this.gender = gender;
     }
 
-    public String getPassenger_name() { return passenger_name; }
-    public int getAge() { return age; }
-    public String getGender() { return gender; }
+    public String getPassengerName() {
+        return passengerName;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public String getGender() {
+        return gender;
+    }
 }

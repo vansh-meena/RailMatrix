@@ -55,19 +55,59 @@ public class TrainDAO {
         }
     }
 
-    public void getAvailableSeats(int trainId) {
+    public int getTotalSeats(int trainId) {
+        int seats = 0;
         try {
-            String query = "SELECT available_seats FROM trains WHERE train_id = ?";
+            String query = "SELECT total_seats FROM trains WHERE train_id=?";
             PreparedStatement ps = con.prepareStatement(query);
+
             ps.setInt(1, trainId);
 
             ResultSet rs = ps.executeQuery();
 
             if (rs.next()) {
-                System.out.println("Available Seats: " + rs.getInt("available_seats"));
-            } else {
-                System.out.println("Train not found!");
+                seats = rs.getInt("total_seats");
             }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return seats;
+    }
+
+    public int getAvailableSeats(int trainId, Date journeyDate) {
+        int availableSeats = 0;
+
+        try {
+            String query = "SELECT available_seats FROM train_schedule WHERE train_id = ? AND journey_date = ?";
+            PreparedStatement ps = con.prepareStatement(query);
+
+            ps.setInt(1, trainId);
+            ps.setDate(2, journeyDate);
+
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                availableSeats = rs.getInt("available_seats");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return availableSeats;
+    }
+
+    public void updateSeats(int trainId, Date date, int seatsBooked) {
+        try {
+            String query = "UPDATE train_schedule SET available_seats = available_seats - ? WHERE train_id=? AND journey_date=?";
+            PreparedStatement ps = con.prepareStatement(query);
+
+            ps.setInt(1, seatsBooked);
+            ps.setInt(2, trainId);
+            ps.setDate(3, date);
+
+            ps.executeUpdate();
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -103,6 +143,32 @@ public class TrainDAO {
             }
 
             System.out.println("-----------------------------------");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void createScheduleIfNotExists(int trainId, Date date, int totalSeats) {
+        try {
+            String checkQuery = "SELECT * FROM train_schedule WHERE train_id=? AND journey_date=?";
+            PreparedStatement check = con.prepareStatement(checkQuery);
+
+            check.setInt(1, trainId);
+            check.setDate(2, date);
+
+            ResultSet rs = check.executeQuery();
+
+            if (!rs.next()) {
+                String insertQuery = "INSERT INTO train_schedule(train_id, journey_date, available_seats) VALUES (?, ?, ?)";
+                PreparedStatement insert = con.prepareStatement(insertQuery);
+
+                insert.setInt(1, trainId);
+                insert.setDate(2, date);
+                insert.setInt(3, totalSeats);
+
+                insert.executeUpdate();
+            }
 
         } catch (Exception e) {
             e.printStackTrace();

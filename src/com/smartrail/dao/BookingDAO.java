@@ -9,10 +9,10 @@ public class BookingDAO {
         this.con = con;
     }
 
-    public void bookSeats(int trainId, int passengerId, int seats) {
+    public int bookSeats(int userId, int trainId, Date journeyDate, int seats) {
         try {
             // Step 1: Check available seats
-            String checkQuery = "SELECT available_seats FROM trains WHERE train_id = ?";
+            String checkQuery = "SELECT available_seats FROM train_schedule WHERE train_id = ? AND journey_date = ?";
             PreparedStatement ps1 = con.prepareStatement(checkQuery);
             ps1.setInt(1, trainId);
 
@@ -24,11 +24,12 @@ public class BookingDAO {
                 if (available >= seats) {
 
                     // Step 2: Insert booking
-                    String insertQuery = "INSERT INTO bookings(train_id, passenger_id, seats_booked) VALUES (?, ?, ?)";
+                    String insertQuery = "INSERT INTO bookings(user_id, train_id, journey_date, total_passengers) VALUES (?, ?, ?, ?)";
                     PreparedStatement ps2 = con.prepareStatement(insertQuery, Statement.RETURN_GENERATED_KEYS);
-                    ps2.setInt(1, trainId);
-                    ps2.setInt(2, passengerId);
-                    ps2.setInt(3, seats);
+                    ps2.setInt(1, userId);
+                    ps2.setInt(2, trainId);
+                    ps2.setDate(3, journeyDate);
+                    ps2.setInt(4, seats);
 
                     ps2.executeUpdate();
 
@@ -40,7 +41,7 @@ public class BookingDAO {
                     }
 
                     // Step 3: Update seats
-                    String updateQuery = "UPDATE trains SET available_seats = available_seats - ? WHERE train_id = ?";
+                    String updateQuery = "UPDATE train_schedule SET available_seats = available_seats - ? WHERE train_id = ? AND journey_date = ?";
                     PreparedStatement ps3 = con.prepareStatement(updateQuery);
                     ps3.setInt(1, seats);
                     ps3.setInt(2, trainId);
@@ -49,7 +50,7 @@ public class BookingDAO {
                     //FETCHING PASSENGER NAME
                     String pQuery = "SELECT passenger_name FROM passengers WHERE passenger_id = ?";
                     PreparedStatement psP = con.prepareStatement(pQuery);
-                    psP.setInt(1, passengerId);
+                    psP.setInt(1, userId);
 
                     ResultSet rsP = psP.executeQuery();
                     String passengerName = "";
@@ -73,7 +74,7 @@ public class BookingDAO {
                         destination = rsT.getString("destination");
                     }
 
-//                    System.out.println("✅ Booking successful!");
+//                    System.out.println("Booking successful!");
                     System.out.println("\n===== BOOKING CONFIRMED =====");
                     System.out.println("Booking ID: " + bookingId);
                     System.out.println("Passenger: " + passengerName);
@@ -83,16 +84,17 @@ public class BookingDAO {
                     System.out.println("============================");
 
                 } else {
-                    System.out.println("❌ Not enough seats available!");
+                    System.out.println("Not enough seats available!");
                 }
 
             } else {
-                System.out.println("❌ Train not found!");
+                System.out.println("Train not found!");
             }
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return userId;
     }
 
     public void cancelBooking(int bookingId) {
@@ -121,10 +123,10 @@ public class BookingDAO {
                 ps3.setInt(1, bookingId);
                 ps3.executeUpdate();
 
-                System.out.println("✅ Booking cancelled and seats restored!");
+                System.out.println("Booking cancelled and seats restored!");
 
             } else {
-                System.out.println("❌ Booking not found!");
+                System.out.println("Booking not found!");
             }
 
         } catch (Exception e) {
