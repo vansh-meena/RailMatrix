@@ -5,11 +5,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.smartrail.model.Station;
-import com.smartrail.util.DBConnection;
 
 public class StationDAO {
 
-    private Connection con;
+    private static Connection con;
 
 //Non-parameterized Constructor
     public StationDAO () {}
@@ -73,26 +72,48 @@ public class StationDAO {
         return map;
     }
 
-    public int getStationIdByName(String stationName) {
+    public String getStationName(String stationName) {
 
         int stationId = -1;
 
         try {
-            String query = "SELECT station_id FROM stations WHERE station_name = ?";
+            String query = "SELECT station_name FROM stations WHERE station_id = ?";
             PreparedStatement ps = con.prepareStatement(query);
-            ps.setString(1, stationName);
+
+            ps.setInt(1, stationId);
 
             ResultSet rs = ps.executeQuery();
 
             if (rs.next()) {
-                stationId = rs.getInt("station_id");
+                return rs.getString("station_name");
             }
 
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        return stationId;
+        return "Unknown";
+    }
+
+    public static int getStationId(String stationName) {
+
+        try {
+            String query = "SELECT station_id FROM stations WHERE station_name = ?";
+            PreparedStatement ps = con.prepareStatement(query);
+
+            ps.setString(1, stationName);
+
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                return rs.getInt("station_id");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return -1;
     }
 }
 

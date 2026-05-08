@@ -4,13 +4,8 @@ import java.sql.Date;
 import java.util.*;
 
 import com.smartrail.dao.*;
-import com.smartrail.model.Passenger;
-import com.smartrail.model.Route;
-import com.smartrail.model.Station;
-import com.smartrail.model.Trains;
+import com.smartrail.model.*;
 import com.smartrail.dao.RouteDAO;
-import com.smartrail.service.GraphBuilder;
-import com.smartrail.service.ShortestPathService;
 import com.smartrail.util.DBConnection;
 
 import java.sql.Connection;
@@ -21,275 +16,147 @@ public class RailMatrixApp {
         int currentUserId = -1;
         try {
             Connection con = DBConnection.getConnection();
-            StationDAO dao = new StationDAO(con);
-            TrainDAO trainDAO = new TrainDAO(con);
-            BookingDAO bookingDAO = new BookingDAO(con);
-            PassengerDAO passengerDAO = new PassengerDAO(con);
-            RouteDAO routeDAO = new RouteDAO(con);
+//            StationDAO dao = new StationDAO(con);
+//            TrainDAO trainDAO = new TrainDAO(con);
+//            BookingDAO bookingDAO = new BookingDAO(con);
+//            PassengerDAO passengerDAO = new PassengerDAO(con);
+//            RouteDAO routeDAO = new RouteDAO(con);
+//            UserDAO userDAO = new UserDAO();
+//            AdminDAO adminDAO = new AdminDAO();
+
 
             Scanner sc = new Scanner(System.in);
 
+            UserDAO userDAO = new UserDAO();
+            boolean isAdmin = false;
+
             while (true) {
-                System.out.println("\n===== RailMatrix Menu =====");
-                System.out.println("1. Add Station");
-                System.out.println("2. View Stations");
-                System.out.println("3. Add Train");
-                System.out.println("4. View Trains");
-                System.out.println("5. Book Ticket");
-                System.out.println("6. Check Available Seats");
-                System.out.println("7. Cancel Booking");
-                System.out.println("8. View Booking History");
-                System.out.println("9. Search Train by Route");
-                System.out.println("10. Test Routes Graph");
-                System.out.println("11. Find Shortest Route");
-                System.out.println("12. Exit");
-                System.out.print("Enter choice: ");
+
+                System.out.println("\n===== MAIN MENU =====");
+                System.out.println("1. Register");
+                System.out.println("2. Login");
+                System.out.println("3. Exit");
 
                 int choice = sc.nextInt();
-                sc.nextLine(); // clear buffer
+                sc.nextLine();
 
                 switch (choice) {
 
+                    // ================= REGISTER =================
                     case 1:
-                        System.out.print("Enter Station Name: ");
-                        String station_name = sc.nextLine();
-
-                        System.out.print("Enter City: ");
-                        String city = sc.nextLine();
-
-                        Station s = new Station(station_name, city);
-                        dao.addStation(s);
-                        break;
-
-                    case 2:
-                        System.out.println("\nAll Stations:");
-                        dao.getAllStations();
-                        break;
-
-                    case 3: {
-                        if (currentUserId == -1) {
-                            System.out.println("Please login first!");
-                            break;
-                        }
-
-                        // STEP 1: Input date
-                        System.out.print("Enter Train ID: ");
-                        int trainId = sc.nextInt();
-                        sc.nextLine(); // consume newline
-
-                        System.out.print("Enter number of passengers: ");
-                        int numberOfPassengers = sc.nextInt();
-                        sc.nextLine();
-
-                        System.out.print("Enter journey date (YYYY-MM-DD): ");
-                        String dateInput = sc.nextLine();
-                        Date journeyDate = Date.valueOf(dateInput);
-                        int totalSeats = trainDAO.getTotalSeats(trainId);
-
-                        // STEP 2: Ensure schedule exists
-                        trainDAO.createScheduleIfNotExists(trainId, journeyDate, totalSeats);
-
-                        // STEP 3: Check seats
-                        int availableSeats = trainDAO.getAvailableSeats(trainId, journeyDate);
-
-                        if (availableSeats < numberOfPassengers) {
-                            System.out.println("Not enough seats available!");
-                            return;
-                        }
-
-                        // STEP 4: Create booking
-                        int bookingId = bookingDAO.bookSeats(currentUserId, trainId, journeyDate, numberOfPassengers);
-
-                        // STEP 5: Add passengers
-                        int seatNo = 1;
-
-                        for (int i = 0; i < numberOfPassengers; i++) {
-
-                            System.out.print("Enter name: ");
-                            String name = sc.nextLine();
-
-                            System.out.print("Enter age: ");
-                            int age = sc.nextInt();
-                            sc.nextLine();
-
-                            System.out.print("Enter gender: ");
-                            String gender = sc.nextLine();
-
-                            Passenger p = new Passenger(name, age, gender);
-
-                            passengerDAO.addPassenger(p, bookingId, seatNo);
-
-                            seatNo++;
-                        }
-
-                        // STEP 6: Deduct seats
-                        trainDAO.updateSeats(trainId, journeyDate, numberOfPassengers);
-
-                        System.out.println("Booking Successful!");
-
-//                        System.out.print("Enter Train Name: ");
-//                        String tname = sc.nextLine();
-//
-//                        System.out.print("Enter Departure: ");
-//                        String dep = sc.nextLine();
-//
-//                        System.out.print("Enter Destination: ");
-//                        String dest = sc.nextLine();
-//
-//                        System.out.print("Enter Total Seats: ");
-//                        int seats = sc.nextInt();
-//                        sc.nextLine();
-//
-//                        Trains t = new Trains(tname, dep, dest, seats);
-//                        trainDAO.addTrain(t);
-                        break;
-                    }
-
-                    case 4:
-                        System.out.println("\nAll Trains:");
-                        TrainDAO.getAllTrains();
-                        break;
-
-                    case 5:
-                        sc.nextLine(); // clear buffer
-
-                        System.out.print("Enter Passenger Name: ");
+                        System.out.print("Enter name: ");
                         String name = sc.nextLine();
 
-                        System.out.print("Enter Age: ");
-                        int age = sc.nextInt();
+                        System.out.print("Enter email: ");
+                        String email = sc.nextLine();
+
+                        System.out.print("Enter password: ");
+                        String password = sc.nextLine();
+
+                        User user = new User();
+                        user.setName(name);
+                        user.setEmail(email);
+                        user.setPassword(password);
+
+                        if (userDAO.register(user)) {
+                            System.out.println("Registration successful!");
+                        } else {
+                            System.out.println("Registration failed!");
+                        }
+                        break;
+
+                    // ================= LOGIN =================
+                    case 2:
+
+                        System.out.println("1. User Login");
+                        System.out.println("2. Admin Login");
+
+                        int loginChoice = sc.nextInt();
                         sc.nextLine();
 
-                        System.out.print("Enter Gender: ");
-                        String gender = sc.nextLine();
+                        // -------- USER LOGIN --------
+                        if (loginChoice == 1) {
 
-                        System.out.print("Enter Train ID: ");
-                        int trainId = sc.nextInt();
+                            while (true) {
 
-                        System.out.println("Enter Journey Date: ");
-                        String journeyDate = sc.nextLine();
+                                System.out.print("Enter email: ");
+                                String uEmail = sc.nextLine();
 
-                        System.out.print("Enter number of seats: ");
-                        int seats = sc.nextInt();
+                                if (!userDAO.isUserExists(uEmail)) {
+                                    System.out.println("User not found! Try again.\n");
+                                    continue;
+                                }
 
-                        // VALIDATION FIRST
-                        if (seats <= 0) {
-                            System.out.println("Invalid number of seats!");
-                            break;
-                        }
-                        if (trainId <= 0) {
-                            System.out.println("Invalid Train ID!");
-                            break;
-                        }
+                                System.out.print("Enter password: ");
+                                String uPass = sc.nextLine();
 
-                        // Put into DB
-                        Passenger p = new Passenger(name, age, gender);
-                        int bookingId = 0;
-                        int seatNo = 1;
+                                User u = userDAO.login(uEmail, uPass);
 
-                        for (int i = 0; i < seats; i++) {
-                            passengerDAO.addPassenger(p, bookingId, seatNo);
-                            seatNo++; // next seat
-                        }
-                        int passengerId = passengerDAO.addPassenger(p, bookingId, seatNo);
+                                if (u == null) {
+                                    System.out.println("Invalid Password! Try again.\n");
+                                } else {
+                                    currentUserId = u.getUserId();
+                                    System.out.println("Login successful! Welcome " + u.getName());
 
-                        bookingDAO.bookSeats(trainId, passengerId, Date.valueOf(journeyDate), seats);
-                        break;
+                                    // 👉 Go to User Menu
+                                    UserMenu userMenu = new UserMenu(currentUserId);
+                                    userMenu.start();
 
-                    case 6:
-                        System.out.print("Enter Train ID: ");
-                        int id = sc.nextInt();
-                        trainDAO.getTotalSeats(id);
-                        break;
-                    case 7:
-                        System.out.print("Enter Booking ID to cancel: ");
-                        bookingId = sc.nextInt();
-
-                        bookingDAO.cancelBooking(bookingId);
-                        break;
-
-                    case 8:
-                        bookingDAO.viewBookingHistory();
-                        break;
-
-                    case 9:
-                        sc.nextLine(); // clear buffer
-
-                        System.out.print("Enter Source: ");
-                        String source = sc.nextLine();
-
-                        System.out.print("Enter Destination: ");
-                        String destination = sc.nextLine();
-
-                        trainDAO.searchTrain(source, destination);
-                        break;
-
-                    case 10: {
-                        List<Route> routes = routeDAO.getAllRoutes();
-
-                        Map<Integer, String> stationMap = dao.getStationIdNameMap();
-
-                        System.out.println("-----------------------------------");
-                        System.out.println("Total routes fetched: " + routes.size());
-                        System.out.println("-----------------------------------");
-
-                        Map<Integer, List<Route>> graph = GraphBuilder.buildGraph(routes);
-
-                        for (Integer stationId : graph.keySet()) {
-                            String stationName = stationMap.get(stationId);
-                            System.out.println("From " + stationName + ":");
-
-                            for (Route r : graph.get(stationId)) {
-
-                                String destName = stationMap.get(r.getDestinationStationId());
-
-                                System.out.println("  -> " + destName +
-                                        " (" + r.getDistanceKm() + " km)");
+                                    break;
+                                }
                             }
-                            System.out.println("-----------------------------------");
-                        }
-                        break;
-                    }
-
-                    case 11: {
-                        List<Route> routes = routeDAO.getAllRoutes();
-                        Map<Integer, List<Route>> graph = GraphBuilder.buildGraph(routes);
-                        Map<Integer, String> stationMap = dao.getStationIdNameMap();
-
-                        sc.nextLine(); // clear buffer
-
-                        System.out.print("Enter Source Station Name: ");
-                        String sourceName = sc.nextLine();
-
-                        System.out.print("Enter Destination Station Name: ");
-                        String destName = sc.nextLine();
-
-                        int sourceId = dao.getStationIdByName(sourceName);
-                        int destId = dao.getStationIdByName(destName);
-
-                        if (sourceId == -1 || destId == -1) {
-                            System.out.println("Invalid station name!");
-                            break;
                         }
 
-                        ShortestPathService.findShortestPath(graph, sourceId, destId, stationMap);
+                        // -------- ADMIN LOGIN --------
+                        else if (loginChoice == 2) {
+
+                            int attempts = 0;
+                            long blockTime = 0;
+
+                            while (true) {
+
+                                if (System.currentTimeMillis() < blockTime) {
+                                    System.out.println("Admin login disabled. Try later.");
+                                    break;
+                                }
+
+                                System.out.print("Enter admin email: ");
+                                String aEmail = sc.nextLine();
+
+                                System.out.print("Enter password: ");
+                                String aPass = sc.nextLine();
+
+                                if (AdminDAO.adminLogin(aEmail, aPass)) {
+                                    isAdmin = true;
+                                    System.out.println("Admin login successful!");
+
+                                    // 👉 Go to Admin Menu
+                                    AdminMenu adminMenu = new AdminMenu();
+                                    adminMenu.start();
+
+                                    break;
+                                } else {
+                                    System.out.println("Invalid credentials! Try again.\n");
+                                    attempts++;
+                                }
+
+                                if (attempts == 10) {
+                                    blockTime = System.currentTimeMillis() + (10 * 60 * 1000);
+                                    System.out.println("Too many attempts! Blocked for 10 minutes.");
+                                    break;
+                                }
+                            }
+                        }
 
                         break;
-                    }
 
-                    case 12:
+                    case 3:
                         System.out.println("Exiting...");
                         return;
-
-                    default:
-                        System.out.println("Invalid choice!");
                 }
             }
-
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-
     }
 }

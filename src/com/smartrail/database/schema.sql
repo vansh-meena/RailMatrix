@@ -67,3 +67,11 @@ CREATE TABLE train_schedule (
 
     FOREIGN KEY (train_id) REFERENCES trains(train_id)
 );
+
+-- Admin
+CREATE TABLE admins (
+    admin_id INT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(100) UNIQUE,
+    password VARCHAR(100)
+);
+-- (email, password) -> (admin001@gmail.com, admin001)

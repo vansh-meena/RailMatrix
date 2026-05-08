@@ -114,6 +114,22 @@ public class TrainDAO {
         }
     }
 
+    public void restoreSeats(int trainId, Date date, int seatsToRestore) {
+        try {
+            String query = "UPDATE train_schedule SET available_seats = available_seats + ? WHERE train_id=? AND journey_date=?";
+            PreparedStatement ps = con.prepareStatement(query);
+
+            ps.setInt(1, seatsToRestore);
+            ps.setInt(2, trainId);
+            ps.setDate(3, date);
+
+            ps.executeUpdate();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public void searchTrain(String departure, String destination) {
         try {
             String query = "SELECT * FROM trains WHERE LOWER(source) = LOWER(?) AND LOWER(destination) = LOWER(?)";

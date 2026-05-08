@@ -5,11 +5,10 @@ import java.util.*;
 
 public class ShortestPathService {
 
-    public static void findShortestPath(
+    public static List<Integer> findShortestPath(
             Map<Integer, List<Route>> graph,
             int sourceStationId,
-            int destinationStationId,
-            Map<Integer, String> stationMap) {
+            int destinationStationId) {
 
         Map<Integer, Integer> distance = new HashMap<>();
         Map<Integer, Integer> parent = new HashMap<>();
@@ -43,15 +42,10 @@ public class ShortestPathService {
             }
         }
 
-        // Print Result
         if (!distance.containsKey(destinationStationId)) {
-            System.out.println("No route found!");
-            return;
+            return null;
         }
 
-        System.out.println("Shortest Distance: " + distance.get(destinationStationId) + " km");
-
-        // Reconstruct Path
         List<Integer> path = new ArrayList<>();
         int current = destinationStationId;
 
@@ -63,10 +57,6 @@ public class ShortestPathService {
 
         Collections.reverse(path);
 
-        System.out.println("Path:");
-        for (int stationId : path) {
-            System.out.print(stationMap.get(stationId) + " -> ");
-        }
-        System.out.println("END");
+        return path;
     }
 }
