@@ -243,8 +243,8 @@ public class AdminMenu {
                     System.out.print("Enter Destination Station Name: ");
                     String destName = sc.nextLine();
 
-                    int sourceId = Integer.parseInt(dao.getStationName(sourceName));
-                    int destId = Integer.parseInt(dao.getStationName(destName));
+                    int sourceId = StationDAO.getStationId(sourceName);
+                    int destId = StationDAO.getStationId(destName);
 
                     if (sourceId == -1 || destId == -1) {
                         System.out.println("Invalid station name!");

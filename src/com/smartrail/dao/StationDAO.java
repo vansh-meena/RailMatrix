@@ -73,25 +73,15 @@ public class StationDAO {
     }
 
     public String getStationName(String stationName) {
-
-        int stationId = -1;
-
         try {
-            String query = "SELECT station_name FROM stations WHERE station_id = ?";
+            String query = "SELECT station_name FROM stations WHERE station_name = ?";
             PreparedStatement ps = con.prepareStatement(query);
-
-            ps.setInt(1, stationId);
-
+            ps.setString(1, stationName);
             ResultSet rs = ps.executeQuery();
-
-            if (rs.next()) {
-                return rs.getString("station_name");
-            }
-
+            if (rs.next()) return rs.getString("station_name");
         } catch (Exception e) {
             e.printStackTrace();
         }
-
         return "Unknown";
     }
 

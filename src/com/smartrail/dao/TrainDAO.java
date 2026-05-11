@@ -5,7 +5,7 @@ import com.smartrail.model.Trains;
 import java.sql.*;
 
 public class TrainDAO {
-    private static Connection con;
+    private Connection con;
 
     public TrainDAO(Connection con) {
         this.con = con;
@@ -32,7 +32,7 @@ public class TrainDAO {
     }
 
     // FETCH
-    public static void getAllTrains() {
+    public void getAllTrains() {
         try {
             String query = "SELECT * FROM trains";
             Statement st = con.createStatement();
@@ -44,7 +44,7 @@ public class TrainDAO {
 
             while (rs.next()) {
                 System.out.printf("%-5d %-20s %-15s %-15s %-10d\n",
-                        rs.getInt("id"),
+                        rs.getInt("train_id"),
                         rs.getString("train_name"),
                         rs.getString("source"),
                         rs.getString("destination"),
@@ -150,8 +150,8 @@ public class TrainDAO {
                 System.out.println("-----------------------------------");
                 System.out.println("Train ID: " + rs.getInt("train_id"));
                 System.out.println("Train Name: " + rs.getString("train_name"));
-                System.out.println("Route: " + rs.getString("departure") + " -> " + rs.getString("destination"));
-                System.out.println("Available Seats: " + rs.getInt("available_seats"));
+                System.out.println("Source: " + rs.getString("source") + " -> " + rs.getString("destination"));
+                System.out.println("Total Seats: " + rs.getInt("total_seats"));
             }
 
             if (!found) {
@@ -186,6 +186,28 @@ public class TrainDAO {
                 insert.executeUpdate();
             }
 
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public void generateUpcomingSchedules(int daysAhead) {
+        try {
+            String query = """
+            INSERT INTO train_schedule (train_id, journey_date, available_seats)
+            SELECT t.train_id, DATE_ADD(CURDATE(), INTERVAL ? DAY), t.total_seats
+            FROM trains t
+            WHERE NOT EXISTS (
+                SELECT 1 FROM train_schedule ts
+                WHERE ts.train_id = t.train_id
+                AND ts.journey_date = DATE_ADD(CURDATE(), INTERVAL ? DAY)
+            )
+        """;
+            PreparedStatement ps = con.prepareStatement(query);
+            ps.setInt(1, daysAhead);
+            ps.setInt(2, daysAhead);
+            ps.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
         }

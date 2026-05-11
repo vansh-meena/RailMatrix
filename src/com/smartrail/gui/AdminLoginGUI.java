@@ -1,16 +1,14 @@
 package com.smartrail.gui;
 
-import com.smartrail.dao.UserDAO;
-import com.smartrail.model.User;
+import com.smartrail.dao.AdminDAO;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 
-public class LoginGUI extends JFrame {
+public class AdminLoginGUI extends JFrame {
 
-    // ── Colour palette ───────────────────────────────────────────
     private static final Color PRIMARY       = new Color(72, 52, 120);
     private static final Color PRIMARY_DARK  = new Color(50, 35, 90);
     private static final Color ACCENT        = new Color(155, 89, 182);
@@ -23,15 +21,16 @@ public class LoginGUI extends JFrame {
     private JTextField emailField;
     private JPasswordField passField;
     private JLabel statusLabel;
+    private int attempts = 0;
+    private long blockedUntil = 0;
 
-    public LoginGUI() {
-        setTitle("RailMatrix — Login");
-        setSize(480, 500);
+    public AdminLoginGUI() {
+        setTitle("RailMatrix — Admin Login");
+        setSize(480, 460);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
 
-        // ── Root gradient background ─────────────────────────────
         JPanel root = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -43,7 +42,6 @@ public class LoginGUI extends JFrame {
         root.setLayout(new GridBagLayout());
         setContentPane(root);
 
-        // ── Card ─────────────────────────────────────────────────
         JPanel card = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -57,72 +55,57 @@ public class LoginGUI extends JFrame {
         };
         card.setOpaque(false);
         card.setLayout(new GridBagLayout());
-        card.setPreferredSize(new Dimension(400, 420));
+        card.setPreferredSize(new Dimension(400, 390));
 
         GridBagConstraints gc = new GridBagConstraints();
         gc.fill = GridBagConstraints.HORIZONTAL;
         gc.gridx = 0; gc.gridwidth = 1;
 
-        // Logo
-        JLabel logo = new JLabel("🚆 RailMatrix", SwingConstants.CENTER);
+        // Admin shield icon + logo
+        JLabel logo = new JLabel("🛡 RailMatrix Admin", SwingConstants.CENTER);
         logo.setFont(new Font("Segoe UI", Font.BOLD, 18));
         logo.setForeground(PRIMARY);
         gc.gridy = 0; gc.insets = new Insets(28, 24, 0, 24);
         card.add(logo, gc);
 
-        // Title
-        JLabel title = new JLabel("Welcome Back", SwingConstants.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        JLabel title = new JLabel("Admin Portal", SwingConstants.CENTER);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
         title.setForeground(PRIMARY_DARK);
         gc.gridy = 1; gc.insets = new Insets(4, 24, 2, 24);
         card.add(title, gc);
 
-        // Subtitle
-        JLabel sub = new JLabel("Login to manage your bookings", SwingConstants.CENTER);
+        JLabel sub = new JLabel("Restricted access — authorised personnel only", SwingConstants.CENTER);
         sub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         sub.setForeground(TEXT_GREY);
         gc.gridy = 2; gc.insets = new Insets(0, 24, 20, 24);
         card.add(sub, gc);
 
-        // Email
+        // Fields
         gc.insets = new Insets(6, 24, 2, 24);
-        gc.gridy = 3; card.add(fieldLabel("Email Address"), gc);
-        emailField = (JTextField) roundedField("Enter your email", false);
+        gc.gridy = 3; card.add(fieldLabel("Admin Email"), gc);
+        emailField = (JTextField) roundedField("Enter admin email", false);
         gc.gridy = 4; card.add(emailField, gc);
 
-        // Password
         gc.gridy = 5; card.add(fieldLabel("Password"), gc);
-        passField = (JPasswordField) roundedField("Enter your password", true);
+        passField = (JPasswordField) roundedField("Enter password", true);
         gc.gridy = 6; card.add(passField, gc);
 
-        // Status label
+        // Status
         statusLabel = new JLabel("", SwingConstants.CENTER);
         statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         gc.gridy = 7; gc.insets = new Insets(6, 24, 0, 24);
         card.add(statusLabel, gc);
 
         // Login button
-        JButton loginBtn = roundedButton("Login", PRIMARY, WHITE);
+        JButton loginBtn = roundedButton("Login as Admin", PRIMARY, WHITE);
         loginBtn.addActionListener(e -> handleLogin());
         gc.gridy = 8; gc.insets = new Insets(14, 24, 8, 24);
         card.add(loginBtn, gc);
 
-        // Register link
-        JPanel regRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
-        regRow.setOpaque(false);
-        JLabel noAcc = new JLabel("Don't have an account?");
-        noAcc.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        noAcc.setForeground(TEXT_GREY);
-        JButton regLink = linkButton("Register here");
-        regLink.addActionListener(e -> { dispose(); new RegisterGUI(); });
-        regRow.add(noAcc); regRow.add(regLink);
-        gc.gridy = 9; gc.insets = new Insets(0, 24, 8, 24);
-        card.add(regRow, gc);
-
         // Back button
         JButton backBtn = roundedButton("← Back to Home", new Color(240, 235, 255), PRIMARY);
         backBtn.addActionListener(e -> { dispose(); new WelcomeScreen(); });
-        gc.gridy = 10; gc.insets = new Insets(0, 24, 24, 24);
+        gc.gridy = 9; gc.insets = new Insets(0, 24, 24, 24);
         card.add(backBtn, gc);
 
         root.add(card);
@@ -133,29 +116,36 @@ public class LoginGUI extends JFrame {
     // LOGIN HANDLER
     // ────────────────────────────────────────────────────────────
     private void handleLogin() {
+        // Check block
+        if (System.currentTimeMillis() < blockedUntil) {
+            long remaining = (blockedUntil - System.currentTimeMillis()) / 1000 / 60;
+            setStatus("Too many attempts. Try again in " + remaining + " min.", ERROR_RED);
+            return;
+        }
+
         String email = emailField.getText().trim();
         String pass  = new String(passField.getPassword());
 
-        if (email.isEmpty() || email.equals("Enter your email") ||
-                pass.isEmpty()  || pass.equals("Enter your password")) {
+        if (email.isEmpty() || email.equals("Enter admin email") ||
+                pass.isEmpty()  || pass.equals("Enter password")) {
             setStatus("Please fill in all fields.", ERROR_RED); return;
         }
 
-        UserDAO userDAO = new UserDAO();
-
-        if (!userDAO.isUserExists(email)) {
-            setStatus("No account found with this email.", ERROR_RED); return;
-        }
-
-        User user = userDAO.login(email, pass);
-
-        if (user == null) {
-            setStatus("Incorrect password. Please try again.", ERROR_RED);
-        } else {
-            setStatus("Login successful! Welcome " + user.getName(), SUCCESS_GREEN);
-            Timer t = new Timer(1000, e -> { dispose(); new UserDashboard(user.getUserId(), user.getName(), user.getEmail()); });
+        if (AdminDAO.adminLogin(email, pass)) {
+            attempts = 0;
+            setStatus("Login successful! Loading dashboard...", SUCCESS_GREEN);
+            Timer t = new Timer(900, e -> { dispose(); new AdminDashboardGUI(); });
             t.setRepeats(false);
             t.start();
+        } else {
+            attempts++;
+            int remaining = 5 - attempts;
+            if (attempts >= 5) {
+                blockedUntil = System.currentTimeMillis() + (10 * 60 * 1000);
+                setStatus("Too many failed attempts. Blocked for 10 minutes.", ERROR_RED);
+            } else {
+                setStatus("Invalid credentials. " + remaining + " attempt(s) left.", ERROR_RED);
+            }
         }
     }
 
@@ -164,9 +154,7 @@ public class LoginGUI extends JFrame {
         statusLabel.setForeground(color);
     }
 
-    // ────────────────────────────────────────────────────────────
-    // UI HELPERS
-    // ────────────────────────────────────────────────────────────
+    // ── UI helpers (same pattern as LoginGUI) ────────────────────
     private JLabel fieldLabel(String text) {
         JLabel lbl = new JLabel(text);
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -229,7 +217,8 @@ public class LoginGUI extends JFrame {
                 g2.setColor(fg);
                 g2.setFont(getFont());
                 FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(getText(), (getWidth() - fm.stringWidth(getText())) / 2,
+                g2.drawString(getText(),
+                        (getWidth() - fm.stringWidth(getText())) / 2,
                         (getHeight() + fm.getAscent() - fm.getDescent()) / 2);
                 g2.dispose();
             }
@@ -240,22 +229,6 @@ public class LoginGUI extends JFrame {
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return btn;
-    }
-
-    private JButton linkButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btn.setForeground(ACCENT);
-        btn.setBackground(null);
-        btn.setBorderPainted(false);
-        btn.setContentAreaFilled(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { btn.setForeground(PRIMARY); }
-            public void mouseExited(MouseEvent e)  { btn.setForeground(ACCENT);  }
-        });
         return btn;
     }
 }

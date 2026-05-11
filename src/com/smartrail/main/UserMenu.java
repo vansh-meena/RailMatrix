@@ -97,9 +97,6 @@ public class UserMenu {
                         seatNo++;
                     }
 
-                    // STEP 6: Deduct seats
-                    trainDAO.updateSeats(trainId, journeyDate, numberOfPassengers);
-
                     System.out.println("\nBooking Successful!");
                     break;
                 }

@@ -13,11 +13,12 @@ public class BookingDAO {
 
     public int bookSeats(int userId, int trainId, Date journeyDate, int seats) {
         try {
-            // Step 1: Check available seats
+            con.setAutoCommit(false); // START TRANSACTION
+
             String checkQuery = "SELECT available_seats FROM train_schedule WHERE train_id = ? AND journey_date = ?";
             PreparedStatement ps1 = con.prepareStatement(checkQuery);
             ps1.setInt(1, trainId);
-
+            ps1.setDate(2, journeyDate);
             ResultSet rs = ps1.executeQuery();
 
             if (rs.next()) {
@@ -25,78 +26,71 @@ public class BookingDAO {
 
                 if (available >= seats) {
 
-                    // Step 2: Insert booking
                     String insertQuery = "INSERT INTO bookings(user_id, train_id, journey_date, total_passengers) VALUES (?, ?, ?, ?)";
                     PreparedStatement ps2 = con.prepareStatement(insertQuery, Statement.RETURN_GENERATED_KEYS);
                     ps2.setInt(1, userId);
                     ps2.setInt(2, trainId);
                     ps2.setDate(3, journeyDate);
                     ps2.setInt(4, seats);
-
                     ps2.executeUpdate();
 
                     ResultSet rs2 = ps2.getGeneratedKeys();
                     int bookingId = -1;
+                    if (rs2.next()) bookingId = rs2.getInt(1);
 
-                    if (rs2.next()) {
-                        bookingId = rs2.getInt(1);
-                    }
-
-                    // Step 3: Update seats
                     String updateQuery = "UPDATE train_schedule SET available_seats = available_seats - ? WHERE train_id = ? AND journey_date = ?";
                     PreparedStatement ps3 = con.prepareStatement(updateQuery);
                     ps3.setInt(1, seats);
                     ps3.setInt(2, trainId);
+                    ps3.setDate(3, journeyDate);
                     ps3.executeUpdate();
 
-                    //FETCHING PASSENGER NAME
+                    con.commit(); // COMMIT
+
+                    // fetch display info
                     String pQuery = "SELECT passenger_name FROM passengers WHERE passenger_id = ?";
                     PreparedStatement psP = con.prepareStatement(pQuery);
                     psP.setInt(1, userId);
-
                     ResultSet rsP = psP.executeQuery();
-                    String passengerName = "";
+                    String passengerName = rsP.next() ? rsP.getString("passenger_name") : "";
 
-                    if (rsP.next()) {
-                        passengerName = rsP.getString("passenger_name");
-                    }
-
-                    //FETCHING TRAIN DETAILS
                     String tQuery = "SELECT train_name, departure, destination FROM trains WHERE train_id = ?";
                     PreparedStatement psT = con.prepareStatement(tQuery);
                     psT.setInt(1, trainId);
-
                     ResultSet rsT = psT.executeQuery();
-
                     String trainName = "", departure = "", destination = "";
-
                     if (rsT.next()) {
-                        trainName = rsT.getString("train_name");
-                        departure = rsT.getString("departure");
+                        trainName   = rsT.getString("train_name");
+                        departure   = rsT.getString("departure");
                         destination = rsT.getString("destination");
                     }
 
-//                    System.out.println("Booking successful!");
                     System.out.println("\n===== BOOKING CONFIRMED =====");
-                    System.out.println("Booking ID: " + bookingId);
-                    System.out.println("Passenger: " + passengerName);
-                    System.out.println("Train: " + trainName);
-                    System.out.println("Route: " + departure + " -> " + destination);
-                    System.out.println("Seats Booked: " + seats);
-                    System.out.println("============================");
+                    System.out.println("Booking ID : " + bookingId);
+                    System.out.println("Passenger  : " + passengerName);
+                    System.out.println("Train      : " + trainName);
+                    System.out.println("Route      : " + departure + " -> " + destination);
+                    System.out.println("Seats      : " + seats);
+                    System.out.println("=============================");
+
+                    return bookingId;
 
                 } else {
                     System.out.println("Not enough seats available!");
                 }
-
             } else {
-                System.out.println("Train not found!");
+                System.out.println("Train schedule not found!");
             }
 
+            con.rollback(); // ROLLBACK if we didn't return
+
         } catch (Exception e) {
+            try { con.rollback(); } catch (Exception ex) { ex.printStackTrace(); }
             e.printStackTrace();
+        } finally {
+            try { con.setAutoCommit(true); } catch (Exception e) { e.printStackTrace(); }
         }
-        return userId;
+        return -1;
     }
 
     public void deleteBooking(int bookingId) {
@@ -132,7 +126,7 @@ public class BookingDAO {
                 found = true;
                 System.out.println("\nBooking ID: " + rs.getInt("booking_id"));
                 System.out.println("Train ID: " + rs.getInt("train_id"));
-                System.out.println("Seats: " + rs.getInt("seats_booked"));
+                System.out.println("Seats: " + rs.getInt("total_passengers"));
                 System.out.println("Journey Date: " + rs.getDate("journey_date"));
             }
 
