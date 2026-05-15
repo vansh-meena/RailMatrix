@@ -71,19 +71,19 @@ public class RegisterGUI extends JFrame {
 
         // Logo + Title
         JLabel logo = new JLabel("🚆 RailMatrix", SwingConstants.CENTER);
-        logo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        logo.setFont(new Font("Helvetica Neue", Font.BOLD, 18));
         logo.setForeground(PRIMARY);
         gc.gridy = 0; gc.insets = new Insets(28, 24, 0, 24);
         card.add(logo, gc);
 
         JLabel title = new JLabel("Create an Account", SwingConstants.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        title.setFont(new Font("Helvetica Neue", Font.BOLD, 22));
         title.setForeground(PRIMARY_DARK);
         gc.gridy = 1; gc.insets = new Insets(4, 24, 4, 24);
         card.add(title, gc);
 
         JLabel sub = new JLabel("Join RailMatrix and book train tickets easily", SwingConstants.CENTER);
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        sub.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         sub.setForeground(TEXT_GREY);
         gc.gridy = 2; gc.insets = new Insets(0, 24, 16, 24);
         card.add(sub, gc);
@@ -109,7 +109,7 @@ public class RegisterGUI extends JFrame {
 
         // Status label
         statusLabel = new JLabel("", SwingConstants.CENTER);
-        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        statusLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         gc.gridy = 11; gc.insets = new Insets(6, 24, 0, 24);
         card.add(statusLabel, gc);
 
@@ -123,7 +123,7 @@ public class RegisterGUI extends JFrame {
         JPanel loginRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
         loginRow.setOpaque(false);
         JLabel already = new JLabel("Already have an account?");
-        already.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        already.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         already.setForeground(TEXT_GREY);
         JButton loginLink = linkButton("Login here");
         loginLink.addActionListener(e -> { dispose(); new LoginGUI(); });
@@ -194,7 +194,7 @@ public class RegisterGUI extends JFrame {
     // ────────────────────────────────────────────────────────────
     private JLabel fieldLabel(String text) {
         JLabel lbl = new JLabel(text);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setFont(new Font("Helvetica Neue", Font.BOLD, 12));
         lbl.setForeground(PRIMARY);
         return lbl;
     }
@@ -207,7 +207,7 @@ public class RegisterGUI extends JFrame {
                 new RoundedBorder(15, new Color(200, 180, 220)),
                 BorderFactory.createEmptyBorder(8, 12, 8, 12)
         ));
-        field.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        field.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         field.setForeground(TEXT_GREY);
         field.setBackground(WHITE);
         field.setPreferredSize(new Dimension(340, 40));
@@ -267,7 +267,7 @@ public class RegisterGUI extends JFrame {
                 g2.dispose();
             }
         };
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setFont(new Font("Helvetica Neue", Font.BOLD, 14));
         btn.setPreferredSize(new Dimension(340, 42));
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
@@ -278,7 +278,7 @@ public class RegisterGUI extends JFrame {
 
     private JButton linkButton(String text) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setFont(new Font("Helvetica Neue", Font.BOLD, 12));
         btn.setForeground(ACCENT);
         btn.setBackground(null);
         btn.setBorderPainted(false);

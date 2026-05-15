@@ -26,7 +26,8 @@ public class WelcomeScreen extends JFrame {
     private static final Color BG_OVERLAY   = new Color(30, 20, 60, 160); // semi-transparent
 
     private BufferedImage bgImage;
-    private JTextField fromField, toField, dateField;
+    private JTextField fromField, toField;
+    private DatePickerField dateField;
 
     public WelcomeScreen() {
 
@@ -93,7 +94,7 @@ public class WelcomeScreen extends JFrame {
 
         // Logo
         JLabel logo = new JLabel("🚆 RailMatrix");
-        logo.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        logo.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
         logo.setForeground(WHITE);
         nav.add(logo, BorderLayout.WEST);
 
@@ -110,7 +111,7 @@ public class WelcomeScreen extends JFrame {
 
         // Person icon (right)
         JButton profileBtn = new JButton("👤");
-        profileBtn.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+        profileBtn.setFont(new Font("Helvetica Neue", Font.PLAIN, 18));
         profileBtn.setForeground(WHITE);
         profileBtn.setBackground(PRIMARY_DARK);
         profileBtn.setBorderPainted(false);
@@ -137,7 +138,7 @@ public class WelcomeScreen extends JFrame {
 
     private JButton navButton(String text, ActionListener action) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        btn.setFont(new Font("Helvetica Neue", Font.PLAIN, 14));
         btn.setForeground(WHITE);
         btn.setBackground(PRIMARY_DARK);
         btn.setBorderPainted(false);
@@ -174,14 +175,14 @@ public class WelcomeScreen extends JFrame {
 
         // Title
         JLabel title = new JLabel("Find Your Train", SwingConstants.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        title.setFont(new Font("Helvetica Neue", Font.BOLD, 24));
         title.setForeground(PRIMARY);
         gc.gridx = 0; gc.gridy = 0; gc.gridwidth = 3;
         card.add(title, gc);
 
         // Subtitle
         JLabel sub = new JLabel("Search trains, check availability and book instantly", SwingConstants.CENTER);
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        sub.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         sub.setForeground(TEXT_GREY);
         gc.gridy = 1;
         card.add(sub, gc);
@@ -195,7 +196,7 @@ public class WelcomeScreen extends JFrame {
         // Input fields row
         fromField = roundedField("e.g. New Delhi Junction");
         toField   = roundedField("e.g. Mumbai Central");
-        dateField = roundedField("YYYY-MM-DD");
+        dateField = new DatePickerField("Select Date");
 
         gc.gridy = 3;
         gc.gridx = 0; card.add(fromField, gc);
@@ -218,7 +219,7 @@ public class WelcomeScreen extends JFrame {
                 g2.dispose();
             }
         };
-        searchBtn.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        searchBtn.setFont(new Font("Helvetica Neue", Font.BOLD, 15));
         searchBtn.setPreferredSize(new Dimension(200, 42));
         searchBtn.setContentAreaFilled(false);
         searchBtn.setBorderPainted(false);
@@ -237,7 +238,7 @@ public class WelcomeScreen extends JFrame {
 
     private JLabel fieldLabel(String text) {
         JLabel lbl = new JLabel(text);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setFont(new Font("Helvetica Neue", Font.BOLD, 12));
         lbl.setForeground(PRIMARY);
         return lbl;
     }
@@ -257,7 +258,7 @@ public class WelcomeScreen extends JFrame {
         };
         field.setOpaque(false);
         field.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
-        field.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        field.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         field.setForeground(TEXT_GREY);
         field.setText(placeholder);
         field.setPreferredSize(new Dimension(200, 38));
@@ -286,11 +287,14 @@ public class WelcomeScreen extends JFrame {
     private void handleSearch() {
         String from = fromField.getText().trim();
         String to   = toField.getText().trim();
-        String date = dateField.getText().trim();
+        String date = dateField.getSelectedDateSQL();
 
         if (from.isEmpty() || from.equals("e.g. New Delhi Junction") ||
-                to.isEmpty()   || to.equals("e.g. Mumbai Central")       ||
-                date.isEmpty() || date.equals("YYYY-MM-DD")) {
+                to.isEmpty()   || to.equals("e.g. Mumbai Central")) {
+            if (date == null) {
+                JOptionPane.showMessageDialog(this, "Please select a journey date.", "Missing Info", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             JOptionPane.showMessageDialog(this,
                     "Please fill all fields.", "Missing Info",
                     JOptionPane.WARNING_MESSAGE);
@@ -308,6 +312,11 @@ public class WelcomeScreen extends JFrame {
     }
 
     public static void main(String[] args) {
+
+        System.setProperty("apple.awt.antialiasing", "true");
+        System.setProperty("apple.awt.textantialiasing", "true");
+        System.setProperty("apple.laf.useScreenMenuBar", "true");
+
         SwingUtilities.invokeLater(WelcomeScreen::new);
     }
 }

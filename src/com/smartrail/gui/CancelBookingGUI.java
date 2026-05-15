@@ -4,6 +4,7 @@ import com.smartrail.dao.BookingDAO;
 import com.smartrail.dao.TrainDAO;
 import com.smartrail.model.Booking;
 import com.smartrail.util.DBConnection;
+import com.smartrail.util.EmailService;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -73,13 +74,13 @@ public class CancelBookingGUI extends JFrame {
         gc.gridx = 0; gc.gridy = 0;
 
         JLabel title = new JLabel("Cancel Booking", SwingConstants.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setFont(new Font("Helvetica Neue", Font.BOLD, 18));
         title.setForeground(WHITE);
         center.add(title, gc);
 
         gc.gridy = 1;
         JLabel sub = new JLabel("Only upcoming bookings can be cancelled", SwingConstants.CENTER);
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        sub.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         sub.setForeground(new Color(200, 185, 220));
         center.add(sub, gc);
 
@@ -97,25 +98,25 @@ public class CancelBookingGUI extends JFrame {
             Connection con = DBConnection.getConnection();
 
             String query = """
-                SELECT b.booking_id, b.journey_date, b.total_passengers,
-                       t.train_id, t.train_name, t.train_type,
-                       t.departure, t.destination,
-                       t.base_fare, t.fare_per_km,
-                       COALESCE(
-                           (SELECT SUM(r.distance_km)
-                            FROM routes r
-                            JOIN stations sd ON sd.station_id = r.departure_station_id
-                                AND LOWER(sd.station_name) = LOWER(t.departure)
-                            WHERE r.train_id = t.train_id),
-                           0
-                       ) AS total_km
-                FROM bookings b
-                JOIN trains t ON t.train_id = b.train_id
-                WHERE b.user_id = ?
-                  AND b.journey_date >= CURDATE()
-                ORDER BY b.journey_date ASC
-            """;
-
+                            SELECT b.booking_id, b.journey_date, b.total_passengers,
+                                   t.train_id, t.train_name, t.train_type,
+                                   t.departure, t.destination,
+                                   t.base_fare, t.fare_per_km,
+                                   COALESCE(
+                                       (SELECT SUM(r.distance_km)
+                                        FROM routes r
+                                        JOIN stations sd ON sd.station_id = r.departure_station_id
+                                            AND LOWER(sd.station_name) = LOWER(t.departure)
+                                        WHERE r.train_id = t.train_id),
+                                       0
+                                   ) AS total_km
+                            FROM bookings b
+                            JOIN trains t ON t.train_id = b.train_id
+                            WHERE b.user_id = ?
+                              AND b.journey_date >= CURDATE()
+                              AND b.status = 'ACTIVE'
+                            ORDER BY b.journey_date ASC
+                        """;
             PreparedStatement ps = con.prepareStatement(query);
             ps.setInt(1, userId);
             ResultSet rs = ps.executeQuery();
@@ -151,7 +152,7 @@ public class CancelBookingGUI extends JFrame {
             if (!found) {
                 listPanel.add(Box.createVerticalStrut(80));
                 JLabel empty = new JLabel("No upcoming bookings to cancel.", SwingConstants.CENTER);
-                empty.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+                empty.setFont(new Font("Helvetica Neue", Font.PLAIN, 15));
                 empty.setForeground(TEXT_GREY);
                 empty.setAlignmentX(Component.CENTER_ALIGNMENT);
                 listPanel.add(empty);
@@ -201,13 +202,13 @@ public class CancelBookingGUI extends JFrame {
         JPanel namePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         namePanel.setOpaque(false);
         JLabel nameLabel = new JLabel(trainName);
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        nameLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 15));
         nameLabel.setForeground(PRIMARY_DARK);
         namePanel.add(nameLabel);
         namePanel.add(typeBadge(trainType));
 
         JLabel bookIdLabel = new JLabel("Booking #" + bookingId);
-        bookIdLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        bookIdLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         bookIdLabel.setForeground(TEXT_GREY);
 
         JPanel nameCol = new JPanel();
@@ -253,7 +254,7 @@ public class CancelBookingGUI extends JFrame {
                 super.paintComponent(g);
             }
         };
-        daysLabel.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        daysLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 11));
         daysLabel.setForeground(daysLeft <= 1 ? ERROR_RED : daysLeft <= 3 ? WARN_ORANGE : GREEN);
         daysLabel.setBorder(new EmptyBorder(3, 10, 3, 10));
         daysLabel.setOpaque(false);
@@ -262,7 +263,7 @@ public class CancelBookingGUI extends JFrame {
         daysCol.setLayout(new BoxLayout(daysCol, BoxLayout.Y_AXIS));
         daysCol.setOpaque(false);
         JLabel daysHdr = new JLabel("Departure");
-        daysHdr.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        daysHdr.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         daysHdr.setForeground(TEXT_GREY);
         daysHdr.setAlignmentX(Component.CENTER_ALIGNMENT);
         daysLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -287,7 +288,7 @@ public class CancelBookingGUI extends JFrame {
                 g2.dispose();
             }
         };
-        cancelBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        cancelBtn.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         cancelBtn.setPreferredSize(new Dimension(80, 36));
         cancelBtn.setContentAreaFilled(false);
         cancelBtn.setBorderPainted(false);
@@ -349,7 +350,7 @@ public class CancelBookingGUI extends JFrame {
 
         // Warning message
         JLabel warning = new JLabel("⚠  Are you sure you want to cancel this booking?");
-        warning.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        warning.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         warning.setForeground(WARN_ORANGE);
         gc.gridx = 0; gc.gridy = 0; gc.gridwidth = 3;
         panel.add(warning, gc);
@@ -359,14 +360,14 @@ public class CancelBookingGUI extends JFrame {
                 trainName + "  •  " + journeyDate + "  •  " + pax + " passenger(s)"
                         + "  •  Refund: ₹" + String.format("%.0f", refund)
         );
-        summary.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        summary.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         summary.setForeground(TEXT_GREY);
         gc.gridy = 1;
         panel.add(summary, gc);
 
         if (refund == 0) {
             JLabel noRefund = new JLabel("No refund applicable — journey is within 24 hours.");
-            noRefund.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            noRefund.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
             noRefund.setForeground(ERROR_RED);
             gc.gridy = 2;
             panel.add(noRefund, gc);
@@ -374,7 +375,7 @@ public class CancelBookingGUI extends JFrame {
 
         // Status label
         JLabel statusLabel = new JLabel("", SwingConstants.LEFT);
-        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        statusLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         gc.gridy = 3;
         panel.add(statusLabel, gc);
 
@@ -412,7 +413,28 @@ public class CancelBookingGUI extends JFrame {
                 trainDAO.restoreSeats(trainId, journeyDate, pax);
 
                 // Delete booking + passengers
-                bookingDAO.deleteBooking(bookingId);
+                bookingDAO.deleteBooking(bookingId, refund);
+
+                new Thread(() -> {
+                    try {
+                        Connection c = DBConnection.getConnection();
+                        PreparedStatement ps = c.prepareStatement(
+                                "SELECT u.email, u.name FROM users u " +
+                                        "JOIN bookings b ON b.user_id = u.user_id " +
+                                        "WHERE b.booking_id = ?");
+                        ps.setInt(1, bookingId);
+                        ResultSet rs = ps.executeQuery();
+                        if (rs.next()) {
+                            EmailService.sendCancellationConfirmation(
+                                    rs.getString("email"),
+                                    rs.getString("name"),
+                                    bookingId, trainName,
+                                    journeyDate.toString(),
+                                    refund
+                            );
+                        }
+                    } catch (Exception ex) { ex.printStackTrace(); }
+                }).start();
 
                 statusLabel.setText("✓ Booking #" + bookingId + " cancelled. Refund: ₹"
                         + String.format("%.0f", refund));
@@ -474,10 +496,10 @@ public class CancelBookingGUI extends JFrame {
         col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
         col.setOpaque(false);
         JLabel lbl = new JLabel(label);
-        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         lbl.setForeground(TEXT_GREY);
         JLabel val = new JLabel(value);
-        val.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        val.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         val.setForeground(PRIMARY_DARK);
         col.add(lbl);
         col.add(val);
@@ -495,7 +517,7 @@ public class CancelBookingGUI extends JFrame {
                 super.paintComponent(g);
             }
         };
-        badge.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        badge.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         badge.setForeground(PRIMARY);
         badge.setBorder(new EmptyBorder(2, 8, 2, 8));
         badge.setOpaque(false);
@@ -520,7 +542,7 @@ public class CancelBookingGUI extends JFrame {
                 g2.dispose();
             }
         };
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         btn.setPreferredSize(new Dimension(180, 36));
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
@@ -531,7 +553,7 @@ public class CancelBookingGUI extends JFrame {
 
     private JButton navBtn(String text) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        btn.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         btn.setForeground(WHITE);
         btn.setBackground(PRIMARY_DARK);
         btn.setBorderPainted(false);

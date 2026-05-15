@@ -128,7 +128,7 @@ public class UserMenu {
                     );
 
                     // STEP 3: Delete booking + passengers
-                    bookingDAO.deleteBooking(bookingId);
+                    bookingDAO.deleteBooking(bookingId, 0.0);
 
                     System.out.println("Booking cancelled successfully!");
                     break;

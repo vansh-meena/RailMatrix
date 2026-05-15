@@ -11,6 +11,7 @@ import java.sql.*;
 
 public class BookingHistoryGUI extends JFrame {
 
+    private Connection con;
     private static final Color PRIMARY      = new Color(72, 52, 120);
     private static final Color PRIMARY_DARK = new Color(50, 35, 90);
     private static final Color ACCENT       = new Color(155, 89, 182);
@@ -21,6 +22,7 @@ public class BookingHistoryGUI extends JFrame {
     private static final Color GREEN        = new Color(40, 160, 80);
     private static final Color ERROR_RED    = new Color(200, 50, 50);
 
+    private boolean showCancelled = false;
     private final int userId;
     private JPanel listPanel;
     private JScrollPane scrollPane;
@@ -64,7 +66,7 @@ public class BookingHistoryGUI extends JFrame {
         header.add(backBtn, BorderLayout.WEST);
 
         JLabel title = new JLabel("My Bookings", SwingConstants.CENTER);
-        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setFont(new Font("Helvetica Neue", Font.BOLD, 18));
         title.setForeground(WHITE);
         header.add(title, BorderLayout.CENTER);
 
@@ -75,39 +77,49 @@ public class BookingHistoryGUI extends JFrame {
         right.add(refreshBtn);
         header.add(right, BorderLayout.EAST);
 
+        JButton toggleBtn = navBtn("Show Cancelled");
+        toggleBtn.addActionListener(e -> {
+            showCancelled = !showCancelled;
+            toggleBtn.setText(showCancelled ? "Show Active" : "Show Cancelled");
+            loadBookings();
+        });
+        right.add(toggleBtn);
+
         return header;
     }
 
     // ────────────────────────────────────────────────────────────
     // LOAD BOOKINGS
     // ────────────────────────────────────────────────────────────
-    private void loadBookings() {
-        listPanel.removeAll();
+        private void loadBookings() {
+            listPanel.removeAll();
 
-        try {
-            Connection con = DBConnection.getConnection();
+            try {
+                con = DBConnection.getConnection();
 
-            String query = """
-                SELECT b.booking_id, b.journey_date, b.total_passengers,
-                       b.booking_time,
-                       t.train_name, t.train_type, t.departure, t.destination,
-                       t.base_fare, t.fare_per_km,
-                       COALESCE(
-                           (SELECT SUM(r.distance_km)
-                            FROM routes r
-                            JOIN stations sd ON sd.station_id = r.departure_station_id
-                                AND LOWER(sd.station_name) = LOWER(t.departure)
-                            WHERE r.train_id = t.train_id),
-                           0
-                       ) AS total_km
-                FROM bookings b
-                JOIN trains t ON t.train_id = b.train_id
-                WHERE b.user_id = ?
-                ORDER BY b.booking_time DESC
-            """;
+                String query = """
+                                SELECT b.booking_id, b.journey_date, b.total_passengers,
+                                       b.booking_time, b.status, b.cancelled_at, b.refund_amount,
+                                       t.train_name, t.train_type, t.departure, t.destination,
+                                       t.base_fare, t.fare_per_km,
+                                       COALESCE(
+                                           (SELECT SUM(r.distance_km)
+                                            FROM routes r
+                                            JOIN stations sd ON sd.station_id = r.departure_station_id
+                                                AND LOWER(sd.station_name) = LOWER(t.departure)
+                                            WHERE r.train_id = t.train_id),
+                                           0
+                                       ) AS total_km
+                                FROM bookings b
+                                JOIN trains t ON t.train_id = b.train_id
+                                WHERE b.user_id = ?
+                                AND b.status = ?
+                                ORDER BY b.booking_time DESC
+                            """;
 
             PreparedStatement ps = con.prepareStatement(query);
             ps.setInt(1, userId);
+            ps.setString(2, showCancelled ? "CANCELLED" : "ACTIVE");
             ResultSet rs = ps.executeQuery();
 
             boolean found = false;
@@ -131,7 +143,11 @@ public class BookingHistoryGUI extends JFrame {
                 listPanel.add(buildBookingCard(
                         bookingId, trainName, trainType,
                         dep, dest, journeyDate,
-                        pax, totalFare, bookedAt, con
+                        pax, totalFare, bookedAt,
+                        rs.getString("status"),
+                        rs.getTimestamp("cancelled_at"),
+                        rs.getDouble("refund_amount"),
+                        con
                 ));
                 listPanel.add(Box.createVerticalStrut(12));
             }
@@ -139,7 +155,7 @@ public class BookingHistoryGUI extends JFrame {
             if (!found) {
                 listPanel.add(Box.createVerticalStrut(80));
                 JLabel empty = new JLabel("No bookings found.", SwingConstants.CENTER);
-                empty.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+                empty.setFont(new Font("Helvetica Neue", Font.PLAIN, 15));
                 empty.setForeground(TEXT_GREY);
                 empty.setAlignmentX(Component.CENTER_ALIGNMENT);
                 listPanel.add(empty);
@@ -163,7 +179,8 @@ public class BookingHistoryGUI extends JFrame {
     private JPanel buildBookingCard(int bookingId, String trainName, String trainType,
                                     String dep, String dest, Date journeyDate,
                                     int pax, double totalFare, Timestamp bookedAt,
-                                    Connection con) {
+                                    String status, Timestamp cancelledAt,
+                                    double refundAmount, Connection con){
 
         JPanel wrapper = new JPanel();
         wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.Y_AXIS));
@@ -194,14 +211,14 @@ public class BookingHistoryGUI extends JFrame {
         JPanel namePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         namePanel.setOpaque(false);
         JLabel nameLabel = new JLabel(trainName);
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        nameLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 15));
         nameLabel.setForeground(PRIMARY_DARK);
         namePanel.add(nameLabel);
         namePanel.add(typeBadge(trainType));
 
         JLabel bookIdLabel = new JLabel("Booking #" + bookingId
                 + "  •  Booked: " + bookedAt.toString().substring(0, 16));
-        bookIdLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        bookIdLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         bookIdLabel.setForeground(TEXT_GREY);
 
         JPanel nameCol = new JPanel();
@@ -209,6 +226,15 @@ public class BookingHistoryGUI extends JFrame {
         nameCol.setOpaque(false);
         nameCol.add(namePanel);
         nameCol.add(bookIdLabel);
+
+// Cancellation info
+        if ("CANCELLED".equals(status)) {
+            JLabel cancelledLabel = new JLabel("Cancelled: " + cancelledAt
+                    + "  |  Refund: ₹" + String.format("%.0f", refundAmount));
+            cancelledLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
+            cancelledLabel.setForeground(ERROR_RED);
+            nameCol.add(cancelledLabel);
+        }
 
         gc.gridx = 0; gc.weightx = 2.5;
         card.add(nameCol, gc);
@@ -238,7 +264,7 @@ public class BookingHistoryGUI extends JFrame {
         statusCol.setLayout(new BoxLayout(statusCol, BoxLayout.Y_AXIS));
         statusCol.setOpaque(false);
         JLabel statusLbl = new JLabel("Status");
-        statusLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        statusLbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         statusLbl.setForeground(TEXT_GREY);
         statusLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
         statusBadge.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -265,7 +291,7 @@ public class BookingHistoryGUI extends JFrame {
                 g2.dispose();
             }
         };
-        detailsBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        detailsBtn.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         detailsBtn.setPreferredSize(new Dimension(110, 32));
         detailsBtn.setContentAreaFilled(false);
         detailsBtn.setBorderPainted(false);
@@ -323,7 +349,7 @@ public class BookingHistoryGUI extends JFrame {
         // Header row
         for (String col : new String[]{"#", "Name", "Age", "Gender", "Seat"}) {
             JLabel hdr = new JLabel(col);
-            hdr.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            hdr.setFont(new Font("Helvetica Neue", Font.BOLD, 12));
             hdr.setForeground(PRIMARY);
             panel.add(hdr, gc);
             gc.gridx++;
@@ -349,7 +375,7 @@ public class BookingHistoryGUI extends JFrame {
             if (row == 1) {
                 gc.gridy = 1; gc.gridx = 0; gc.gridwidth = 5;
                 JLabel none = new JLabel("No passenger details found.");
-                none.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                none.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
                 none.setForeground(TEXT_GREY);
                 panel.add(none, gc);
             }
@@ -363,7 +389,7 @@ public class BookingHistoryGUI extends JFrame {
 
     private void addCell(JPanel panel, GridBagConstraints gc, String text) {
         JLabel lbl = new JLabel(text);
-        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         lbl.setForeground(new Color(50, 40, 80));
         panel.add(lbl, gc);
     }
@@ -376,10 +402,10 @@ public class BookingHistoryGUI extends JFrame {
         col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
         col.setOpaque(false);
         JLabel lbl = new JLabel(label);
-        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         lbl.setForeground(TEXT_GREY);
         JLabel val = new JLabel(value);
-        val.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        val.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         val.setForeground(PRIMARY_DARK);
         col.add(lbl);
         col.add(val);
@@ -397,7 +423,7 @@ public class BookingHistoryGUI extends JFrame {
                 super.paintComponent(g);
             }
         };
-        badge.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        badge.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         badge.setForeground(PRIMARY);
         badge.setBorder(new EmptyBorder(2, 8, 2, 8));
         badge.setOpaque(false);
@@ -415,7 +441,7 @@ public class BookingHistoryGUI extends JFrame {
                 super.paintComponent(g);
             }
         };
-        badge.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        badge.setFont(new Font("Helvetica Neue", Font.BOLD, 11));
         badge.setForeground(upcoming ? GREEN : TEXT_GREY);
         badge.setBorder(new EmptyBorder(3, 10, 3, 10));
         badge.setOpaque(false);
@@ -424,7 +450,7 @@ public class BookingHistoryGUI extends JFrame {
 
     private JButton navBtn(String text) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        btn.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         btn.setForeground(WHITE);
         btn.setBackground(PRIMARY_DARK);
         btn.setBorderPainted(false);

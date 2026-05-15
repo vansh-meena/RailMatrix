@@ -93,20 +93,16 @@ public class BookingDAO {
         return -1;
     }
 
-    public void deleteBooking(int bookingId) {
+    public void deleteBooking(int bookingId, double refundAmount) {
         try {
-            // delete passengers first
-            String pQuery = "DELETE FROM passengers WHERE booking_id = ?";
-            PreparedStatement ps1 = con.prepareStatement(pQuery);
-            ps1.setInt(1, bookingId);
-            ps1.executeUpdate();
-
-            // delete booking
-            String bQuery = "DELETE FROM bookings WHERE booking_id = ?";
-            PreparedStatement ps2 = con.prepareStatement(bQuery);
-            ps2.setInt(1, bookingId);
-            ps2.executeUpdate();
-
+            // Mark as cancelled instead of deleting
+            String query = "UPDATE bookings SET status = 'CANCELLED', " +
+                    "cancelled_at = CURRENT_TIMESTAMP, " +
+                    "refund_amount = ? WHERE booking_id = ?";
+            PreparedStatement ps = con.prepareStatement(query);
+            ps.setDouble(1, refundAmount);
+            ps.setInt(2, bookingId);
+            ps.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
         }

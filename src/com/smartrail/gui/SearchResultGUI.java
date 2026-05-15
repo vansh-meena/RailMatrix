@@ -79,7 +79,7 @@ public class SearchResultGUI extends JFrame {
 
         // Back button
         JButton backBtn = new JButton("← Back");
-        backBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        backBtn.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         backBtn.setForeground(WHITE);
         backBtn.setBackground(PRIMARY_DARK);
         backBtn.setBorderPainted(false);
@@ -99,13 +99,13 @@ public class SearchResultGUI extends JFrame {
         gc.gridx = 0; gc.gridy = 0;
 
         JLabel routeLabel = new JLabel(from + "  →  " + to, SwingConstants.CENTER);
-        routeLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        routeLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 18));
         routeLabel.setForeground(WHITE);
         center.add(routeLabel, gc);
 
         gc.gridy = 1;
         JLabel dateLabel = new JLabel(journeyDate.toString(), SwingConstants.CENTER);
-        dateLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        dateLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         dateLabel.setForeground(new Color(200, 185, 220));
         center.add(dateLabel, gc);
 
@@ -122,54 +122,84 @@ public class SearchResultGUI extends JFrame {
         try {
             Connection con = DBConnection.getConnection();
 
-            // Find trains that have a route segment matching from->to (direct or via stops)
+            // STEP 1: Get station IDs for from/to names (partial match)
+            String stationQuery = "SELECT station_id, station_name FROM stations WHERE LOWER(station_name) LIKE LOWER(?)";
+
+            PreparedStatement psFrom = con.prepareStatement(stationQuery);
+            psFrom.setString(1, "%" + from + "%");
+            ResultSet rsFrom = psFrom.executeQuery();
+
+            PreparedStatement psTo = con.prepareStatement(stationQuery);
+            psTo.setString(1, "%" + to + "%");
+            ResultSet rsTo = psTo.executeQuery();
+
+            if (!rsFrom.next()) {
+                showMessage("No station found matching \"" + from + "\""); return;
+            }
+            int fromId = rsFrom.getInt("station_id");
+            String fromName = rsFrom.getString("station_name");
+
+            if (!rsTo.next()) {
+                showMessage("No station found matching \"" + to + "\""); return;
+            }
+            int toId = rsTo.getInt("station_id");
+            String toName = rsTo.getString("station_name");
+
+            // STEP 2: Find trains that have BOTH stations in their route
+            // and the from stop comes before the to stop
             String query = """
-                SELECT DISTINCT t.train_id, t.train_name, t.train_type,
-                       t.base_fare, t.fare_per_km,
-                       r_dep.departure_time AS dep_time,
-                       r_arr.arrival_time   AS arr_time,
-                       (SELECT SUM(r2.distance_km)
-                        FROM routes r2
-                        WHERE r2.train_id = t.train_id
-                          AND r2.stop_number BETWEEN r_dep.stop_number AND r_arr.stop_number
-                       ) AS total_km,
-                       COALESCE(ts.available_seats, 0) AS available_seats
-                FROM trains t
-                JOIN routes r_dep ON r_dep.train_id = t.train_id
-                JOIN stations s_dep ON s_dep.station_id = r_dep.departure_station_id
-                    AND LOWER(s_dep.station_name) = LOWER(?)
-                JOIN routes r_arr ON r_arr.train_id = t.train_id
-                JOIN stations s_arr ON s_arr.station_id = r_arr.destination_station_id
-                    AND LOWER(s_arr.station_name) = LOWER(?)
-                AND r_arr.stop_number >= r_dep.stop_number
-                LEFT JOIN train_schedule ts ON ts.train_id = t.train_id
-                    AND ts.journey_date = ?
-                WHERE t.departure = ? OR r_dep.departure_station_id IS NOT NULL
-                ORDER BY dep_time
-            """;
+            SELECT DISTINCT
+                t.train_id,
+                t.train_name,
+                t.train_type,
+                t.base_fare,
+                t.fare_per_km,
+                r_from.departure_time   AS dep_time,
+                r_to.arrival_time       AS arr_time,
+                r_from.stop_number      AS from_stop,
+                r_to.stop_number        AS to_stop,
+                COALESCE(
+                    (SELECT SUM(r2.distance_km)
+                     FROM routes r2
+                     WHERE r2.train_id = t.train_id
+                       AND r2.stop_number >= r_from.stop_number
+                       AND r2.stop_number <= r_to.stop_number
+                    ), 0
+                ) AS total_km,
+                COALESCE(ts.available_seats, t.total_seats) AS available_seats
+            FROM trains t
+            JOIN routes r_from ON r_from.train_id = t.train_id
+                AND r_from.departure_station_id = ?
+            JOIN routes r_to   ON r_to.train_id = t.train_id
+                AND r_to.destination_station_id = ?
+                AND r_to.stop_number >= r_from.stop_number
+            LEFT JOIN train_schedule ts
+                ON ts.train_id = t.train_id
+                AND ts.journey_date = ?
+            ORDER BY dep_time
+        """;
 
             PreparedStatement ps = con.prepareStatement(query);
-            ps.setString(1, from);
-            ps.setString(2, to);
+            ps.setInt(1, fromId);
+            ps.setInt(2, toId);
             ps.setDate(3, journeyDate);
-            ps.setString(4, from);
 
             ResultSet rs = ps.executeQuery();
             boolean found = false;
 
             while (rs.next()) {
                 found = true;
-                int    trainId    = rs.getInt("train_id");
-                String trainName  = rs.getString("train_name");
-                String trainType  = rs.getString("train_type");
-                Time   depTime    = rs.getTime("dep_time");
-                Time   arrTime    = rs.getTime("arr_time");
-                int    km         = rs.getInt("total_km");
-                double baseFare   = rs.getDouble("base_fare");
-                double farePerKm  = rs.getDouble("fare_per_km");
-                int    seats      = rs.getInt("available_seats");
+                int    trainId   = rs.getInt("train_id");
+                String trainName = rs.getString("train_name");
+                String trainType = rs.getString("train_type");
+                Time   depTime   = rs.getTime("dep_time");
+                Time   arrTime   = rs.getTime("arr_time");
+                int    km        = rs.getInt("total_km");
+                double baseFare  = rs.getDouble("base_fare");
+                double farePerKm = rs.getDouble("fare_per_km");
+                int    seats     = rs.getInt("available_seats");
 
-                double fare = baseFare + (farePerKm * km);
+                double fare     = baseFare + (farePerKm * (km > 0 ? km : 1));
                 String duration = formatDuration(depTime, arrTime);
 
                 resultsPanel.add(buildTrainCard(
@@ -181,24 +211,25 @@ public class SearchResultGUI extends JFrame {
             }
 
             if (!found) {
-                JLabel noResult = new JLabel("No trains found for this route.", SwingConstants.CENTER);
-                noResult.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-                noResult.setForeground(TEXT_GREY);
-                noResult.setAlignmentX(Component.CENTER_ALIGNMENT);
-                resultsPanel.add(Box.createVerticalStrut(80));
-                resultsPanel.add(noResult);
+                showMessage("No trains found from \"" + fromName + "\" to \"" + toName + "\" on " + journeyDate);
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-            JLabel err = new JLabel("Error loading results. Check DB connection.", SwingConstants.CENTER);
-            err.setForeground(ERROR_RED);
-            err.setAlignmentX(Component.CENTER_ALIGNMENT);
-            resultsPanel.add(err);
+            showMessage("Error loading results: " + e.getMessage());
         }
 
         resultsPanel.revalidate();
         resultsPanel.repaint();
+    }
+
+    private void showMessage(String msg) {
+        JLabel lbl = new JLabel(msg, SwingConstants.CENTER);
+        lbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 15));
+        lbl.setForeground(TEXT_GREY);
+        lbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+        resultsPanel.add(Box.createVerticalStrut(80));
+        resultsPanel.add(lbl);
     }
 
     // ────────────────────────────────────────────────────────────
@@ -237,14 +268,14 @@ public class SearchResultGUI extends JFrame {
         JPanel namePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         namePanel.setOpaque(false);
         JLabel nameLabel = new JLabel(trainName);
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        nameLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 15));
         nameLabel.setForeground(PRIMARY_DARK);
         JLabel typeBadge = badge(trainType);
         namePanel.add(nameLabel);
         namePanel.add(typeBadge);
 
         JLabel idLabel = new JLabel("Train #" + trainId + "  •  " + km + " km");
-        idLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        idLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         idLabel.setForeground(TEXT_GREY);
 
         JPanel nameCol = new JPanel();
@@ -271,13 +302,13 @@ public class SearchResultGUI extends JFrame {
         // Fare
         gc.gridx = 4; gc.weightx = 1;
         JPanel fareCol = timeCol("Fare", "₹" + String.format("%.0f", fare));
-        ((JLabel)((JPanel)fareCol.getComponent(1)).getComponent(0)).setForeground(PRIMARY);
+        ((JLabel) fareCol.getComponent(1)).setForeground(PRIMARY);
         card.add(fareCol, gc);
 
         // Seats
         gc.gridx = 5; gc.weightx = 1;
         JLabel seatsVal = new JLabel(seats + " seats");
-        seatsVal.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        seatsVal.setFont(new Font("Helvetica Neue", Font.BOLD, 14));
         seatsVal.setForeground(seats > 10 ? GREEN : seats > 0 ? new Color(200, 130, 0) : ERROR_RED);
         JPanel seatsCol = labeledCol("Available", seatsVal);
         card.add(seatsCol, gc);
@@ -301,7 +332,7 @@ public class SearchResultGUI extends JFrame {
                 g2.dispose();
             }
         };
-        bookBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        bookBtn.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         bookBtn.setPreferredSize(new Dimension(80, 36));
         bookBtn.setContentAreaFilled(false);
         bookBtn.setBorderPainted(false);
@@ -312,8 +343,8 @@ public class SearchResultGUI extends JFrame {
                 : Cursor.getDefaultCursor());
 
         // ── Booking form panel (hidden initially) ───────────────
-        JPanel bookingForm = buildBookingForm(trainId, trainName, fare, seats, wrapper, bookBtn);
-        bookingForm.setVisible(false);
+        final JPanel[] bookingFormRef = {buildBookingForm(trainId, trainName, fare, seats, wrapper, bookBtn)};
+        bookingFormRef[0].setVisible(false);
 
         bookBtn.addActionListener(e -> {
             if (loggedInUserId == -1) {
@@ -322,8 +353,8 @@ public class SearchResultGUI extends JFrame {
                         "Login Required", JOptionPane.YES_NO_OPTION);
                 if (choice == JOptionPane.YES_OPTION) { dispose(); new LoginGUI(); }
             } else {
-                boolean showing = bookingForm.isVisible();
-                bookingForm.setVisible(!showing);
+                boolean showing = bookingFormRef[0].isVisible();
+                bookingFormRef[0].setVisible(!showing);
                 bookBtn.setText(!showing ? "Close" : "Book");
                 wrapper.revalidate();
                 wrapper.repaint();
@@ -340,7 +371,7 @@ public class SearchResultGUI extends JFrame {
         card.add(bookBtn, gc);
 
         wrapper.add(card);
-        wrapper.add(bookingForm);
+        wrapper.add(bookingFormRef[0]);
         return wrapper;
     }
 
@@ -376,14 +407,14 @@ public class SearchResultGUI extends JFrame {
 
         SpinnerNumberModel spinnerModel = new SpinnerNumberModel(1, 1, Math.min(maxSeats, 6), 1);
         JSpinner passengerSpinner = new JSpinner(spinnerModel);
-        passengerSpinner.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        passengerSpinner.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         passengerSpinner.setPreferredSize(new Dimension(80, 32));
         gc.gridx = 1;
         form.add(passengerSpinner, gc);
 
         // Total fare display
         JLabel totalFareLabel = new JLabel("Total: ₹" + String.format("%.0f", farePerPax));
-        totalFareLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        totalFareLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 14));
         totalFareLabel.setForeground(PRIMARY);
         gc.gridx = 2; gc.gridwidth = 2;
         form.add(totalFareLabel, gc);
@@ -415,7 +446,7 @@ public class SearchResultGUI extends JFrame {
                 JTextField nf = styledField("Name", 140);
                 JTextField af = styledField("Age", 50);
                 JComboBox<String> gf = new JComboBox<>(new String[]{"Male", "Female", "Other"});
-                gf.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                gf.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
                 gf.setPreferredSize(new Dimension(100, 30));
 
                 nameFields.add(nf); ageFields.add(af); genderBoxes.add(gf);
@@ -434,7 +465,7 @@ public class SearchResultGUI extends JFrame {
 
         // Status label
         JLabel formStatus = new JLabel("", SwingConstants.LEFT);
-        formStatus.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        formStatus.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
         gc.gridy = 2;
         form.add(formStatus, gc);
 
@@ -454,7 +485,7 @@ public class SearchResultGUI extends JFrame {
                 g2.dispose();
             }
         };
-        confirmBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        confirmBtn.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         confirmBtn.setPreferredSize(new Dimension(160, 38));
         confirmBtn.setContentAreaFilled(false);
         confirmBtn.setBorderPainted(false);
@@ -477,49 +508,28 @@ public class SearchResultGUI extends JFrame {
             }
 
             // Book
-            try {
-                Connection con = DBConnection.getConnection();
-                TrainDAO trainDAO     = new TrainDAO(con);
-                BookingDAO bookingDAO = new BookingDAO(con);
-                PassengerDAO paxDAO   = new PassengerDAO(con);
-
-                int totalSeats = trainDAO.getTotalSeats(trainId);
-                trainDAO.createScheduleIfNotExists(trainId, journeyDate, totalSeats);
-
-                int avail = trainDAO.getAvailableSeats(trainId, journeyDate);
-                if (avail < paxCount) {
-                    formStatus.setText("Not enough seats available.");
-                    formStatus.setForeground(ERROR_RED); return;
-                }
-
-                int bookingId = bookingDAO.bookSeats(loggedInUserId, trainId, journeyDate, paxCount);
-                if (bookingId == -1) {
-                    formStatus.setText("Booking failed. Please try again.");
-                    formStatus.setForeground(ERROR_RED); return;
-                }
-
-                for (int i = 0; i < paxCount; i++) {
-                    Passenger p = new Passenger(
-                            nameFields.get(i).getText().trim(),
-                            Integer.parseInt(ageFields.get(i).getText().trim()),
-                            (String) genderBoxes.get(i).getSelectedItem()
-                    );
-                    paxDAO.addPassenger(p, bookingId, i + 1);
-                }
-
-                trainDAO.updateSeats(trainId, journeyDate, paxCount);
-
-                formStatus.setText("✓ Booking confirmed! ID: " + bookingId);
-                formStatus.setForeground(GREEN);
-                confirmBtn.setEnabled(false);
-                bookBtn.setText("Booked");
-                bookBtn.setEnabled(false);
-
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                formStatus.setText("Error: " + ex.getMessage());
-                formStatus.setForeground(ERROR_RED);
+            // Build passenger list
+            List<Passenger> passengerList = new ArrayList<>();
+            for (int i = 0; i < paxCount; i++) {
+                passengerList.add(new Passenger(
+                        nameFields.get(i).getText().trim(),
+                        Integer.parseInt(ageFields.get(i).getText().trim()),
+                        (String) genderBoxes.get(i).getSelectedItem()
+                ));
             }
+
+// Calculate fare
+            double fare = farePerPax * paxCount;
+
+// Open payment window
+            new PaymentGUI(
+                    loggedInUserId,
+                    trainId,
+                    trainName,
+                    journeyDate,
+                    passengerList,
+                    fare
+            );
         });
 
         gc.gridy = 3; gc.fill = GridBagConstraints.NONE;
@@ -534,7 +544,7 @@ public class SearchResultGUI extends JFrame {
     // ────────────────────────────────────────────────────────────
     private JPanel timeCol(String label, String value) {
         JLabel valLabel = new JLabel(value, SwingConstants.CENTER);
-        valLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        valLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 15));
         valLabel.setForeground(PRIMARY_DARK);
         return labeledCol(label, valLabel);
     }
@@ -544,7 +554,7 @@ public class SearchResultGUI extends JFrame {
         col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
         col.setOpaque(false);
         JLabel lbl = new JLabel(label, SwingConstants.CENTER);
-        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         lbl.setForeground(TEXT_GREY);
         lbl.setAlignmentX(Component.CENTER_ALIGNMENT);
         valLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -564,7 +574,7 @@ public class SearchResultGUI extends JFrame {
                 super.paintComponent(g);
             }
         };
-        badge.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        badge.setFont(new Font("Helvetica Neue", Font.PLAIN, 11));
         badge.setForeground(PRIMARY);
         badge.setBorder(new EmptyBorder(2, 8, 2, 8));
         badge.setOpaque(false);
@@ -573,7 +583,7 @@ public class SearchResultGUI extends JFrame {
 
     private JLabel formLabel(String text) {
         JLabel lbl = new JLabel(text);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setFont(new Font("Helvetica Neue", Font.BOLD, 12));
         lbl.setForeground(PRIMARY);
         return lbl;
     }
@@ -582,7 +592,7 @@ public class SearchResultGUI extends JFrame {
         JTextField f = new JTextField();
         f.setText(placeholder);
         f.setForeground(TEXT_GREY);
-        f.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        f.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         f.setPreferredSize(new Dimension(width, 30));
         f.setBorder(BorderFactory.createCompoundBorder(
                 new RegisterGUI.RoundedBorder(8, new Color(200, 180, 220)),

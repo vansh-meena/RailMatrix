@@ -51,6 +51,9 @@ CREATE TABLE bookings (
     journey_date DATE,
     total_passengers INT,
     booking_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'ACTIVE';
+    cancelled_at TIMESTAMP NULL;
+    refund_amount DECIMAL(10,2) DEFAULT 0.00;
 
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     FOREIGN KEY (train_id) REFERENCES trains(train_id)

@@ -38,9 +38,20 @@ public class AdminDashboardGUI extends JFrame {
         JPanel main = new JPanel(new BorderLayout());
         main.setBackground(BG_LIGHT);
 
-        sectionTitle = new JLabel("Dashboard Overview", SwingConstants.LEFT);
-        sectionTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        sectionTitle.setForeground(PRIMARY_DARK);
+        sectionTitle = new JLabel("") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                        RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING,
+                        RenderingHints.VALUE_RENDER_QUALITY);
+                g2.setColor(PRIMARY_DARK);
+                g2.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
+                g2.drawString(getText(), 24, 30);
+                g2.dispose();
+            }
+        };
+        sectionTitle.setPreferredSize(new Dimension(900, 50));
         sectionTitle.setBorder(new EmptyBorder(20, 24, 10, 24));
         main.add(sectionTitle, BorderLayout.NORTH);
 
@@ -68,13 +79,24 @@ public class AdminDashboardGUI extends JFrame {
         nav.setPreferredSize(new Dimension(getWidth(), 55));
         nav.setBorder(new EmptyBorder(0, 20, 0, 20));
 
-        JLabel logo = new JLabel("🛡 RailMatrix Admin");
-        logo.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        JLabel logo = new JLabel("") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                        RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
+                g2.setColor(WHITE);
+                g2.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
+                g2.drawString("RailMatrix Admin", 10, 22);
+                g2.dispose();
+            }
+        };
+        logo.setPreferredSize(new Dimension(220, 30));
+        logo.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
         logo.setForeground(WHITE);
         nav.add(logo, BorderLayout.WEST);
 
         JButton logoutBtn = new JButton("Logout");
-        logoutBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        logoutBtn.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         logoutBtn.setForeground(WHITE);
         logoutBtn.setBackground(new Color(180, 50, 50));
         logoutBtn.setBorder(new EmptyBorder(5, 14, 5, 14));
@@ -113,15 +135,27 @@ public class AdminDashboardGUI extends JFrame {
     }
 
     private JButton sidebarBtn(String text, ActionListener action) {
-        JButton btn = new JButton(text);
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        btn.setForeground(new Color(210, 200, 235));
+        JButton btn = new JButton() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                        RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING,
+                        RenderingHints.VALUE_RENDER_QUALITY);
+                g2.setColor(getBackground());
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.setColor(getForeground());
+                g2.setFont(new Font("Helvetica Neue", Font.PLAIN, 14));
+                g2.drawString(text, 20, getHeight() / 2 + 5);
+                g2.dispose();
+            }
+        };
         btn.setBackground(new Color(58, 42, 100));
+        btn.setForeground(new Color(210, 200, 235));
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
-        btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setBorder(new EmptyBorder(12, 20, 12, 20));
         btn.setMaximumSize(new Dimension(200, 48));
+        btn.setPreferredSize(new Dimension(200, 48));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(80, 60, 130)); }
@@ -163,36 +197,30 @@ public class AdminDashboardGUI extends JFrame {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                        RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
+                // Background
                 g2.setColor(bg);
                 g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 16, 16));
                 g2.setColor(DIVIDER);
                 g2.draw(new RoundRectangle2D.Double(0, 0, getWidth()-1, getHeight()-1, 16, 16));
+                // Icon
+                g2.setFont(new Font("Helvetica Neue", Font.PLAIN, 28));
+                g2.setColor(PRIMARY_DARK);
+                g2.drawString(icon, 16, 42);
+                // Value
+                g2.setFont(new Font("Helvetica Neue", Font.BOLD, 28));
+                g2.setColor(PRIMARY_DARK);
+                g2.drawString(value, 16, 80);
+                // Label
+                g2.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
+                g2.setColor(TEXT_GREY);
+                g2.drawString(label, 16, 100);
                 g2.dispose();
             }
         };
         card.setOpaque(false);
-        card.setLayout(new GridBagLayout());
         card.setPreferredSize(new Dimension(180, 120));
-
-        GridBagConstraints gc = new GridBagConstraints();
-        gc.gridx = 0; gc.fill = GridBagConstraints.HORIZONTAL;
-        gc.insets = new Insets(6, 16, 2, 16);
-
-        JLabel iconLabel = new JLabel(icon, SwingConstants.LEFT);
-        iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
-        gc.gridy = 0; card.add(iconLabel, gc);
-
-        JLabel valLabel = new JLabel(value, SwingConstants.LEFT);
-        valLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        valLabel.setForeground(PRIMARY_DARK);
-        gc.gridy = 1; card.add(valLabel, gc);
-
-        JLabel lblLabel = new JLabel(label, SwingConstants.LEFT);
-        lblLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblLabel.setForeground(TEXT_GREY);
-        gc.gridy = 2; gc.insets = new Insets(0, 16, 10, 16);
-        card.add(lblLabel, gc);
-
         return card;
     }
 
@@ -252,7 +280,6 @@ public class AdminDashboardGUI extends JFrame {
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 10));
         top.setOpaque(false);
         top.setBorder(new EmptyBorder(0, 24, 0, 24));
-
         JButton addBtn = actionButton("+ Add Station", PRIMARY);
         addBtn.addActionListener(e -> showAddStationDialog());
         top.add(addBtn);
@@ -264,14 +291,18 @@ public class AdminDashboardGUI extends JFrame {
 
         try {
             Connection con = DBConnection.getConnection();
-            ResultSet rs = con.prepareStatement("SELECT * FROM stations ORDER BY station_id").executeQuery();
+            String query = "SELECT station_id, station_name, city FROM stations ORDER BY station_id";
+            PreparedStatement ps = con.prepareStatement(query);
+            ResultSet rs = ps.executeQuery();
             String[] cols = {"ID", "Station Name", "City"};
             java.util.List<Object[]> rows = new java.util.ArrayList<>();
-            while (rs.next()) rows.add(new Object[]{
-                    rs.getInt("station_id"),
-                    rs.getString("station_name"),
-                    rs.getString("city")
-            });
+            while (rs.next()) {
+                rows.add(new Object[]{
+                        rs.getInt(1),
+                        rs.getString(2),
+                        rs.getString(3)
+                });
+            }
             tablePanel.add(buildTable(cols, rows), BorderLayout.CENTER);
         } catch (Exception e) { e.printStackTrace(); }
 
@@ -293,15 +324,18 @@ public class AdminDashboardGUI extends JFrame {
         try {
             Connection con = DBConnection.getConnection();
             String query = """
-                SELECT b.booking_id, u.name, t.train_name,
-                       b.journey_date, b.total_passengers, b.booking_time
-                FROM bookings b
-                JOIN users u  ON u.user_id  = b.user_id
-                JOIN trains t ON t.train_id = b.train_id
-                ORDER BY b.booking_time DESC
-            """;
+                            SELECT b.booking_id, u.name, t.train_name,
+                            b.journey_date, b.total_passengers, 
+                            b.booking_time, b.status, b.refund_amount
+                    FROM bookings b
+                    JOIN users u  ON u.user_id  = b.user_id
+                    JOIN trains t ON t.train_id = b.train_id
+                    ORDER BY b.booking_time DESC
+                """;
+
             ResultSet rs = con.prepareStatement(query).executeQuery();
-            String[] cols = {"Booking ID", "User", "Train", "Journey Date", "Passengers", "Booked At"};
+            String[] cols = {"Booking ID", "User", "Train",
+                    "Journey Date", "Passengers", "Booked At"};
             java.util.List<Object[]> rows = new java.util.ArrayList<>();
             while (rs.next()) rows.add(new Object[]{
                     rs.getInt("booking_id"),
@@ -370,7 +404,7 @@ public class AdminDashboardGUI extends JFrame {
         JTextField seatsField = dialogField("Total Seats");
         JTextField fareField  = dialogField("Base Fare (₹)");
         JLabel statusLbl = new JLabel("", SwingConstants.CENTER);
-        statusLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        statusLbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
 
         for (JComponent c : new JComponent[]{
                 label("Train Name"), nameField,
@@ -427,7 +461,7 @@ public class AdminDashboardGUI extends JFrame {
         JTextField nameField = dialogField("Station Name");
         JTextField cityField = dialogField("City");
         JLabel statusLbl = new JLabel("", SwingConstants.CENTER);
-        statusLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        statusLbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
 
         for (JComponent c : new JComponent[]{
                 label("Station Name"), nameField,
@@ -466,9 +500,9 @@ public class AdminDashboardGUI extends JFrame {
         JTable table = new JTable(data, cols) {
             public boolean isCellEditable(int r, int c) { return false; }
         };
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
         table.setRowHeight(34);
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        table.getTableHeader().setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         table.getTableHeader().setBackground(new Color(230, 220, 255));
         table.getTableHeader().setForeground(PRIMARY_DARK);
         table.setSelectionBackground(new Color(220, 210, 250));
@@ -508,7 +542,7 @@ public class AdminDashboardGUI extends JFrame {
                 g2.dispose();
             }
         };
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
         btn.setPreferredSize(new Dimension(160, 38));
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
@@ -519,18 +553,34 @@ public class AdminDashboardGUI extends JFrame {
 
     private JTextField dialogField(String placeholder) {
         JTextField f = new JTextField();
-        f.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        f.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
+        f.setForeground(new Color(100, 100, 100));
+        f.setText(placeholder);
         f.setBorder(BorderFactory.createCompoundBorder(
                 new RegisterGUI.RoundedBorder(10, new Color(200, 180, 220)),
                 BorderFactory.createEmptyBorder(6, 10, 6, 10)
         ));
         f.setPreferredSize(new Dimension(340, 36));
+        f.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) {
+                if (f.getText().equals(placeholder)) {
+                    f.setText("");
+                    f.setForeground(Color.BLACK);
+                }
+            }
+            public void focusLost(FocusEvent e) {
+                if (f.getText().isEmpty()) {
+                    f.setText(placeholder);
+                    f.setForeground(new Color(100, 100, 100));
+                }
+            }
+        });
         return f;
     }
 
     private JLabel label(String text) {
         JLabel l = new JLabel(text);
-        l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        l.setFont(new Font("Helvetica Neue", Font.BOLD, 12));
         l.setForeground(PRIMARY);
         return l;
     }
