@@ -47,11 +47,11 @@ public class AdminDashboardGUI extends JFrame {
                         RenderingHints.VALUE_RENDER_QUALITY);
                 g2.setColor(PRIMARY_DARK);
                 g2.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
-                g2.drawString(getText(), 24, 30);
+                g2.drawString(getText(), 24, 38);
                 g2.dispose();
             }
         };
-        sectionTitle.setPreferredSize(new Dimension(900, 50));
+        sectionTitle.setPreferredSize(new Dimension(900, 60));
         sectionTitle.setBorder(new EmptyBorder(20, 24, 10, 24));
         main.add(sectionTitle, BorderLayout.NORTH);
 
@@ -90,7 +90,7 @@ public class AdminDashboardGUI extends JFrame {
                 g2.dispose();
             }
         };
-        logo.setPreferredSize(new Dimension(220, 30));
+        logo.setPreferredSize(new Dimension(250, 55));
         logo.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
         logo.setForeground(WHITE);
         nav.add(logo, BorderLayout.WEST);
@@ -119,6 +119,8 @@ public class AdminDashboardGUI extends JFrame {
     // ────────────────────────────────────────────────────────────
     private JPanel buildSidebar() {
         JPanel sidebar = new JPanel();
+        sidebar.putClientProperty(RenderingHints.KEY_TEXT_ANTIALIASING,
+                RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
         sidebar.setBackground(new Color(58, 42, 100));
         sidebar.setPreferredSize(new Dimension(200, getHeight()));
@@ -135,31 +137,21 @@ public class AdminDashboardGUI extends JFrame {
     }
 
     private JButton sidebarBtn(String text, ActionListener action) {
-        JButton btn = new JButton() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                        RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING,
-                        RenderingHints.VALUE_RENDER_QUALITY);
-                g2.setColor(getBackground());
-                g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(getForeground());
-                g2.setFont(new Font("Helvetica Neue", Font.PLAIN, 14));
-                g2.drawString(text, 20, getHeight() / 2 + 5);
-                g2.dispose();
-            }
-        };
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Helvetica Neue", Font.PLAIN, 14));
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.setBorder(new EmptyBorder(12, 20, 12, 20));
         btn.setBackground(new Color(58, 42, 100));
         btn.setForeground(new Color(210, 200, 235));
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
+        btn.setContentAreaFilled(false);
         btn.setMaximumSize(new Dimension(200, 48));
         btn.setPreferredSize(new Dimension(200, 48));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(80, 60, 130)); }
-            public void mouseExited(MouseEvent e)  { btn.setBackground(new Color(58, 42, 100)); }
+            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(80, 60, 130)); repaint(); }
+            public void mouseExited(MouseEvent e)  { btn.setBackground(new Color(58, 42, 100)); repaint(); }
         });
         btn.addActionListener(action);
         return btn;
@@ -169,7 +161,9 @@ public class AdminDashboardGUI extends JFrame {
     // OVERVIEW
     // ────────────────────────────────────────────────────────────
     private void showOverview() {
-        sectionTitle.setText("Dashboard Overview");
+        sectionTitle = makeLabel("Dashboard Overview",
+                new Font("Helvetica Neue", Font.BOLD, 20), PRIMARY_DARK);
+        sectionTitle.setBorder(new EmptyBorder(20, 24, 10, 24));
         contentPanel.removeAll();
 
         JPanel grid = new JPanel(new GridLayout(2, 3, 16, 16));
@@ -197,30 +191,36 @@ public class AdminDashboardGUI extends JFrame {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                        RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
-                // Background
                 g2.setColor(bg);
                 g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 16, 16));
                 g2.setColor(DIVIDER);
                 g2.draw(new RoundRectangle2D.Double(0, 0, getWidth()-1, getHeight()-1, 16, 16));
-                // Icon
-                g2.setFont(new Font("Helvetica Neue", Font.PLAIN, 28));
-                g2.setColor(PRIMARY_DARK);
-                g2.drawString(icon, 16, 42);
-                // Value
-                g2.setFont(new Font("Helvetica Neue", Font.BOLD, 28));
-                g2.setColor(PRIMARY_DARK);
-                g2.drawString(value, 16, 80);
-                // Label
-                g2.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
-                g2.setColor(TEXT_GREY);
-                g2.drawString(label, 16, 100);
                 g2.dispose();
             }
         };
         card.setOpaque(false);
+        card.setLayout(new BorderLayout(0, 4));
         card.setPreferredSize(new Dimension(180, 120));
+        card.setBorder(new EmptyBorder(12, 16, 12, 16));
+
+        JLabel iconLabel = new JLabel(icon);
+        iconLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 26));
+
+        JLabel valueLabel = new JLabel(value);
+        valueLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 28));
+        valueLabel.setForeground(PRIMARY_DARK);
+
+        JLabel labelLabel = new JLabel(label);
+        labelLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
+        labelLabel.setForeground(TEXT_GREY);
+
+        JPanel textPanel = new JPanel(new GridLayout(3, 1, 0, 2));
+        textPanel.setOpaque(false);
+        textPanel.add(iconLabel);
+        textPanel.add(valueLabel);
+        textPanel.add(labelLabel);
+
+        card.add(textPanel, BorderLayout.CENTER);
         return card;
     }
 
@@ -325,13 +325,13 @@ public class AdminDashboardGUI extends JFrame {
             Connection con = DBConnection.getConnection();
             String query = """
                             SELECT b.booking_id, u.name, t.train_name,
-                            b.journey_date, b.total_passengers, 
-                            b.booking_time, b.status, b.refund_amount
-                    FROM bookings b
-                    JOIN users u  ON u.user_id  = b.user_id
-                    JOIN trains t ON t.train_id = b.train_id
-                    ORDER BY b.booking_time DESC
-                """;
+                                   b.journey_date, b.total_passengers,
+                                   b.booking_time
+                            FROM bookings b
+                            JOIN users u  ON u.user_id  = b.user_id
+                            JOIN trains t ON t.train_id = b.train_id
+                            ORDER BY b.booking_time DESC
+                        """;
 
             ResultSet rs = con.prepareStatement(query).executeQuery();
             String[] cols = {"Booking ID", "User", "Train",
@@ -588,5 +588,22 @@ public class AdminDashboardGUI extends JFrame {
     private void refresh() {
         contentPanel.revalidate();
         contentPanel.repaint();
+    }
+
+    private JLabel makeLabel(String text, Font font, Color color) {
+        JLabel l = new JLabel(text) {
+            @Override
+            public void paint(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
+                        RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                        RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                super.paint(g2);
+            }
+        };
+        l.setFont(font);
+        l.setForeground(color);
+        return l;
     }
 }

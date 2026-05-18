@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="SmartRailOptimizer:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/SmartRailOptimizer_jar</output-path>
+    <root id="archive" name="SmartRailOptimizer.jar">
+      <element id="module-output" name="SmartRailOptimizer" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/mysql-connector-j-9.6.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/jakarta.mail-2.0.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/jakarta.activation-2.0.1.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

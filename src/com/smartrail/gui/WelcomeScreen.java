@@ -2,6 +2,7 @@ package com.smartrail.gui;
 
 import com.smartrail.dao.TrainDAO;
 import com.smartrail.util.DBConnection;
+import com.smartrail.util.EmailService;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -312,10 +313,17 @@ public class WelcomeScreen extends JFrame {
     }
 
     public static void main(String[] args) {
-
         System.setProperty("apple.awt.antialiasing", "true");
         System.setProperty("apple.awt.textantialiasing", "true");
         System.setProperty("apple.laf.useScreenMenuBar", "true");
+        System.setProperty("swing.aatext", "true");
+        System.setProperty("awt.useSystemAAFontSettings", "lcd");
+
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         SwingUtilities.invokeLater(WelcomeScreen::new);
     }
