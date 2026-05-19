@@ -9,9 +9,9 @@ const Auth = {
     localStorage.setItem('rm_token', token);
     localStorage.setItem('rm_user', JSON.stringify(user));
   },
-  token()  { return localStorage.getItem('rm_token'); },
-  user()   { const u = localStorage.getItem('rm_user'); return u ? JSON.parse(u) : null; },
-  clear()  { localStorage.removeItem('rm_token'); localStorage.removeItem('rm_user'); },
+  token() { return localStorage.getItem('rm_token'); },
+  user() { const u = localStorage.getItem('rm_user'); return u ? JSON.parse(u) : null; },
+  clear() { localStorage.removeItem('rm_token'); localStorage.removeItem('rm_user'); },
   isLoggedIn() { return !!this.token(); }
 };
 
@@ -20,9 +20,9 @@ const AdminAuth = {
     sessionStorage.setItem('rm_admin_token', token);
     sessionStorage.setItem('rm_admin_user', JSON.stringify(user));
   },
-  token()  { return sessionStorage.getItem('rm_admin_token'); },
-  user()   { const u = sessionStorage.getItem('rm_admin_user'); return u ? JSON.parse(u) : null; },
-  clear()  { sessionStorage.removeItem('rm_admin_token'); sessionStorage.removeItem('rm_admin_user'); },
+  token() { return sessionStorage.getItem('rm_admin_token'); },
+  user() { const u = sessionStorage.getItem('rm_admin_user'); return u ? JSON.parse(u) : null; },
+  clear() { sessionStorage.removeItem('rm_admin_token'); sessionStorage.removeItem('rm_admin_user'); },
   isLoggedIn() { return !!this.token(); }
 };
 
@@ -77,9 +77,9 @@ const AdminAPI = {
       body: JSON.stringify({ email, password })
     });
   },
-  async getStats()    { return adminFetch('/admin/stats'); },
-  async getUsers()    { return adminFetch('/admin/users'); },
-  async getTrains()   { return adminFetch('/admin/trains'); },
+  async getStats() { return adminFetch('/admin/stats'); },
+  async getUsers() { return adminFetch('/admin/users'); },
+  async getStations() { return adminFetch('/stations/suggest?q=a'); },
   async getBookings() { return adminFetch('/admin/bookings'); },
   async getStations() { return adminFetch('/stations/suggest?q='); },
   async createTrain(payload) {
@@ -165,13 +165,13 @@ function formatTime(t) {
   const [h, m] = t.split(':');
   const hour = parseInt(h);
   const ampm = hour >= 12 ? 'PM' : 'AM';
-  return `${String(hour % 12 || 12).padStart(2,'0')}:${m} ${ampm}`;
+  return `${String(hour % 12 || 12).padStart(2, '0')}:${m} ${ampm}`;
 }
 
 // ── Station Autocomplete ─────────────────────────────────────────
 function initAutocomplete(inputId, listId, onSelect) {
   const input = document.getElementById(inputId);
-  const list  = document.getElementById(listId);
+  const list = document.getElementById(listId);
   if (!input || !list) return;
 
   let debounceTimer;
@@ -220,7 +220,7 @@ function initAutocomplete(inputId, listId, onSelect) {
 
   return {
     getSelected: () => selectedValue || input.value,
-    isValid:     () => !!selectedValue
+    isValid: () => !!selectedValue
   };
 }
 
@@ -236,23 +236,23 @@ function requireAuth(redirectTo = '/login.html') {
 // ── Update navbar based on auth state ───────────────────────────
 function updateNavbar() {
   const user = Auth.user();
-  const loginLink  = document.getElementById('nav-login');
-  const regLink    = document.getElementById('nav-register');
-  const dashLink   = document.getElementById('nav-dashboard');
-  const logoutBtn  = document.getElementById('nav-logout');
-  const nameEl     = document.getElementById('nav-username');
+  const loginLink = document.getElementById('nav-login');
+  const regLink = document.getElementById('nav-register');
+  const dashLink = document.getElementById('nav-dashboard');
+  const logoutBtn = document.getElementById('nav-logout');
+  const nameEl = document.getElementById('nav-username');
 
   if (user) {
-    if (loginLink)  loginLink.classList.add('hidden');
-    if (regLink)    regLink.classList.add('hidden');
-    if (dashLink)   dashLink.classList.remove('hidden');
-    if (logoutBtn)  logoutBtn.classList.remove('hidden');
-    if (nameEl)     nameEl.textContent = user.name?.split(' ')[0] || 'Account';
+    if (loginLink) loginLink.classList.add('hidden');
+    if (regLink) regLink.classList.add('hidden');
+    if (dashLink) dashLink.classList.remove('hidden');
+    if (logoutBtn) logoutBtn.classList.remove('hidden');
+    if (nameEl) nameEl.textContent = user.name?.split(' ')[0] || 'Account';
   } else {
-    if (loginLink)  loginLink.classList.remove('hidden');
-    if (regLink)    regLink.classList.remove('hidden');
-    if (dashLink)   dashLink.classList.add('hidden');
-    if (logoutBtn)  logoutBtn.classList.add('hidden');
+    if (loginLink) loginLink.classList.remove('hidden');
+    if (regLink) regLink.classList.remove('hidden');
+    if (dashLink) dashLink.classList.add('hidden');
+    if (logoutBtn) logoutBtn.classList.add('hidden');
   }
 
   document.getElementById('nav-logout')?.addEventListener('click', () => {

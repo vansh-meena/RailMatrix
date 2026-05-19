@@ -6,10 +6,10 @@
 // GET  /api/admin/trains         → all trains
 
 const express = require('express');
-const router  = express.Router();
-const crypto  = require('crypto');
-const jwt     = require('jsonwebtoken');
-const pool    = require('../db');
+const router = express.Router();
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const pool = require('../db');
 
 // SHA-256 — matches AdminDAO.java
 function hashPassword(password) {
@@ -70,10 +70,10 @@ router.post('/login', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 router.get('/stats', adminAuth, async (req, res) => {
     try {
-        const [[{ totalUsers }]]    = await pool.query('SELECT COUNT(*) AS totalUsers FROM users');
-        const [[{ totalTrains }]]   = await pool.query('SELECT COUNT(*) AS totalTrains FROM trains');
+        const [[{ totalUsers }]] = await pool.query('SELECT COUNT(*) AS totalUsers FROM users');
+        const [[{ totalTrains }]] = await pool.query('SELECT COUNT(*) AS totalTrains FROM trains');
         const [[{ totalBookings }]] = await pool.query("SELECT COUNT(*) AS totalBookings FROM bookings WHERE status='ACTIVE'");
-        const [[{ totalCancelled }]]= await pool.query("SELECT COUNT(*) AS totalCancelled FROM bookings WHERE status='CANCELLED'");
+        const [[{ totalCancelled }]] = await pool.query("SELECT COUNT(*) AS totalCancelled FROM bookings WHERE status='CANCELLED'");
         const [[{ totalStations }]] = await pool.query('SELECT COUNT(*) AS totalStations FROM stations');
 
         return res.json({ totalUsers, totalTrains, totalBookings, totalCancelled, totalStations });
@@ -89,7 +89,7 @@ router.get('/stats', adminAuth, async (req, res) => {
 // All bookings with user + train info
 // ─────────────────────────────────────────────────────────────────
 router.get('/bookings', adminAuth, async (req, res) => {
-    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, parseInt(req.query.limit) || 20);
     const offset = (page - 1) * limit;
 
@@ -146,14 +146,23 @@ router.get('/trains', adminAuth, async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT t.train_id, t.train_name, t.train_type,
-                    COALESCE((SELECT SUM(tc.total_seats) FROM train_classes tc WHERE tc.train_id = t.train_id), 0) AS total_seats,
-                    t.base_fare, t.fare_per_km,
+                    t.total_seats, t.base_fare, t.fare_per_km,
                     COUNT(DISTINCT r.route_id) AS route_stops
              FROM trains t
              LEFT JOIN routes r ON r.train_id = t.train_id
              GROUP BY t.train_id
              ORDER BY t.train_id`
         );
+        // const [rows] = await pool.query(
+        //     `SELECT t.train_id, t.train_name, t.train_type,
+        //             COALESCE((SELECT SUM(tc.total_seats) FROM train_classes tc WHERE tc.train_id = t.train_id), 0) AS total_seats,
+        //             t.base_fare, t.fare_per_km,
+        //             COUNT(DISTINCT r.route_id) AS route_stops
+        //      FROM trains t
+        //      LEFT JOIN routes r ON r.train_id = t.train_id
+        //      GROUP BY t.train_id
+        //      ORDER BY t.train_id`
+        // );
         return res.json({ count: rows.length, trains: rows });
     } catch (err) {
         console.error('Admin trains error:', err);
@@ -211,7 +220,7 @@ router.post('/trains', adminAuth, async (req, res) => {
                         s.stationId,
                         nextStop ? nextStop.stationId : s.stationId,
                         s.departureTime || '00:00:00',
-                        s.arrivalTime   || (nextStop ? nextStop.arrivalTime : '00:00:00'),
+                        s.arrivalTime || (nextStop ? nextStop.arrivalTime : '00:00:00'),
                         parseFloat(s.distanceKm) || 0
                     ]
                 );

@@ -46,8 +46,8 @@ function showToast(msg, type = 'success') {
 async function loadStats() {
   try {
     const data = await AdminAPI.getStats();
-    document.getElementById('s-users').textContent    = data.totalUsers    || 0;
-    document.getElementById('s-trains').textContent   = data.totalTrains   || 0;
+    document.getElementById('s-users').textContent = data.totalUsers || 0;
+    document.getElementById('s-trains').textContent = data.totalTrains || 0;
     document.getElementById('s-stations').textContent = data.totalStations || 0;
     document.getElementById('s-bookings').textContent = data.totalBookings || 0;
   } catch (err) {
@@ -106,40 +106,38 @@ async function submitBlock() {
 // ── Trains ────────────────────────────────────────────────────────
 let stationList = [];   // cache for autocomplete in route builder
 
-async function loadTrains() {
-  const tb = document.getElementById('trains-tbody');
+async function loadStations() {
+  const tb = document.getElementById('stations-tbody');
   try {
-    const data = await AdminAPI.getTrains();
-    if (!data.trains || data.trains.length === 0) {
-      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No trains found.</td></tr>';
+    const data = await AdminAPI.getStations();
+    if (!data || data.length === 0) {
+      tb.innerHTML = '<tr><td colspan="4" style="text-align:center;">No stations found.</td></tr>';
       return;
     }
-    tb.innerHTML = data.trains.map(t => `
+    tb.innerHTML = data.slice(0, 50).map(s => `
       <tr>
-        <td style="font-family:monospace;">#${t.train_id}</td>
-        <td style="font-weight:600;">${escHtml(t.train_name)}</td>
-        <td>${t.train_type}</td>
-        <td>${t.total_seats} seats</td>
-        <td><span class="badge badge-active">Active</span></td>
-        <td style="color:var(--text-muted);font-size:0.85rem;">${t.route_stops} stops</td>
+        <td>#${s.station_id}</td>
+        <td style="font-weight:600;">${s.station_name}</td>
+        <td>${s.city || 'N/A'}</td>
+        <td><button class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button></td>
       </tr>
     `).join('');
   } catch (err) {
-    tb.innerHTML = `<tr><td colspan="6" style="color:var(--red);text-align:center;">${err.message}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="4" style="color:red; text-align:center;">${err.message}</td></tr>`;
   }
 }
 
 function openAddTrainModal() {
   // Reset the form
-  document.getElementById('train-name').value     = '';
-  document.getElementById('train-type').value     = 'Superfast';
-  document.getElementById('train-base-fare').value= '';
-  document.getElementById('train-fare-km').value  = '';
+  document.getElementById('train-name').value = '';
+  document.getElementById('train-type').value = 'Superfast';
+  document.getElementById('train-base-fare').value = '';
+  document.getElementById('train-fare-km').value = '';
   document.getElementById('route-builder').innerHTML = buildRouteStopHtml(1);
   document.getElementById('train-modal').classList.add('open');
   document.getElementById('train-modal-alert').classList.remove('show');
   // Prefetch station list for autocomplete
-  AdminAPI.getStations().then(d => { stationList = d.stations || d || []; }).catch(() => {});
+  AdminAPI.getStations().then(d => { stationList = d.stations || d || []; }).catch(() => { });
 }
 
 function buildRouteStopHtml(stopNum) {
@@ -162,10 +160,10 @@ function addRouteStop() {
 }
 
 async function saveTrain() {
-  const name    = document.getElementById('train-name').value.trim();
-  const type    = document.getElementById('train-type').value;
-  const base    = parseFloat(document.getElementById('train-base-fare').value);
-  const perKm   = parseFloat(document.getElementById('train-fare-km').value);
+  const name = document.getElementById('train-name').value.trim();
+  const type = document.getElementById('train-type').value;
+  const base = parseFloat(document.getElementById('train-base-fare').value);
+  const perKm = parseFloat(document.getElementById('train-fare-km').value);
 
   if (!name || isNaN(base) || isNaN(perKm)) {
     showModalAlert('train-modal-alert', 'Please fill all required train fields.');
@@ -176,11 +174,11 @@ async function saveTrain() {
   const stopEls = document.querySelectorAll('#route-builder .route-stop');
   const stops = [];
   for (let i = 0; i < stopEls.el; i++) {
-    const el       = stopEls[i];
-    const stName   = el.querySelector('.rs-station').value.trim();
-    const depTime  = el.querySelector('.rs-dep').value;
-    const arrTime  = el.querySelector('.rs-arr').value;
-    const distKm   = parseFloat(el.querySelector('.rs-dist').value) || 0;
+    const el = stopEls[i];
+    const stName = el.querySelector('.rs-station').value.trim();
+    const depTime = el.querySelector('.rs-dep').value;
+    const arrTime = el.querySelector('.rs-arr').value;
+    const distKm = parseFloat(el.querySelector('.rs-dist').value) || 0;
 
     const matched = stationList.find(s =>
       s.station_name.toLowerCase() === stName.toLowerCase()
@@ -239,9 +237,9 @@ async function loadStations() {
 }
 
 function openAddStationModal() {
-  document.getElementById('station-code').value  = '';
-  document.getElementById('station-name').value  = '';
-  document.getElementById('station-city').value  = '';
+  document.getElementById('station-code').value = '';
+  document.getElementById('station-name').value = '';
+  document.getElementById('station-city').value = '';
   document.getElementById('station-modal-alert').classList.remove('show');
   document.getElementById('station-modal').classList.add('open');
 }
@@ -303,7 +301,7 @@ async function loadBookings() {
 
 // ── Helpers ───────────────────────────────────────────────────────
 function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function showModalAlert(elId, msg) {
   const el = document.getElementById(elId);
