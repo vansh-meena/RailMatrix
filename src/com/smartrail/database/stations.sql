@@ -112,5 +112,5 @@ INSERT INTO stations (station_name, city) VALUES
 ('Nimbahera Junction', 'Nimbahera'),
 ('Rawatbhata Junction', 'Rawatbhata'),
 ('Baran Junction', 'Baran'),
-('Jhalawar Road Junction', 'Jhalawar')
+('Jhalawar Road Junction', 'Jhalawar'),
 ('Himmatnagar Junction', 'Himmatnagar');

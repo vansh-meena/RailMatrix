@@ -71,42 +71,44 @@ async function migrate() {
         }
         console.log(`✅ ${insertedTrains.length} Trains imported with adjusted fares.`);
 
-        // 3. TRAIN CLASSES & SCHEDULE SEATS
+        // 3. TRAIN CLASSES & SCHEDULE SEATS (batch inserts for speed)
         console.log('Generating classes and schedules...');
+        
+        const classes = [
+            { code: '1AC', seats: 48 },
+            { code: '2AC', seats: 108 },
+            { code: '3AC', seats: 192 },
+            { code: 'SL', seats: 360 }
+        ];
+
+        // Pre-compute date strings
+        const dates = [];
+        for (let d = 0; d < 30; d++) {
+            const dDate = new Date();
+            dDate.setDate(dDate.getDate() + d);
+            dates.push(dDate.toISOString().split('T')[0]);
+        }
+
         for (const tid of insertedTrains) {
-            // Assign standard classes
-            const classes = [
-                { code: '1AC', seats: 48 },
-                { code: '2AC', seats: 108 },
-                { code: '3AC', seats: 192 },
-                { code: 'SL', seats: 360 }
-            ];
+            // Batch insert train_classes
+            const classRows = classes.map(c => [tid, c.code, c.seats]);
+            await conn.query(`INSERT INTO train_classes (train_id, class_code, total_seats) VALUES ?`, [classRows]);
 
+            // Batch insert schedule_seats — all classes × all 30 days at once
+            const schedRows = [];
             for (const c of classes) {
-                await conn.query(
-                    `INSERT INTO train_classes (train_id, class_code, total_seats) VALUES (?, ?, ?)`,
-                    [tid, c.code, c.seats]
-                );
-
-                // Quotas
                 const gn = Math.floor(c.seats * 0.80);
                 const tq = Math.floor(c.seats * 0.10);
                 const ld = Math.floor(c.seats * 0.05);
                 const hq = c.seats - (gn + tq + ld);
-
-                // Schedule for 30 days
-                for (let d = 0; d < 30; d++) {
-                    const dDate = new Date();
-                    dDate.setDate(dDate.getDate() + d);
-                    const ds = dDate.toISOString().split('T')[0];
-
-                    await conn.query(
-                        `INSERT INTO schedule_seats (train_id, journey_date, class_code, available_gn, available_tq, available_ld, available_hq)
-                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                        [tid, ds, c.code, gn, tq, ld, hq]
-                    );
+                for (const ds of dates) {
+                    schedRows.push([tid, ds, c.code, gn, tq, ld, hq]);
                 }
             }
+            await conn.query(
+                `INSERT INTO schedule_seats (train_id, journey_date, class_code, available_gn, available_tq, available_ld, available_hq) VALUES ?`,
+                [schedRows]
+            );
         }
         console.log('✅ Classes and 30-day schedules generated for all trains.');
 

@@ -1,7 +1,7 @@
 // js/api.js — RailMatrix API client
 // All fetch calls to the Node.js backend go through here
 
-const API = 'http://localhost:3000/api';
+const API = 'https://railmatrix-production.up.railway.app/api';
 
 // ── Token helpers ───────────────────────────────────────────────
 const Auth = {
