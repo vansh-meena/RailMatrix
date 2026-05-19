@@ -173,6 +173,63 @@ router.get('/user/:userId', auth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────
+// GET /api/bookings/pnr/:pnr  [public access for PNR check]
+// Single booking by PNR with full passenger list
+// ─────────────────────────────────────────────────────────────────
+router.get('/pnr/:pnr', async (req, res) => {
+    const pnr = req.params.pnr;
+    try {
+        const [rows] = await pool.query(
+            `SELECT b.*, 
+                t.train_name, t.train_type,
+                src.station_name as source_station, src.city as source_city,
+                dest.station_name as dest_station, dest.city as dest_city,
+                u.email
+             FROM bookings b
+             JOIN trains t ON b.train_id = t.train_id
+             JOIN routes r1 ON t.train_id = r1.train_id AND r1.stop_number = 1
+             JOIN routes r2 ON t.train_id = r2.train_id AND r2.stop_number = (SELECT MAX(stop_number) FROM routes WHERE train_id = t.train_id)
+             JOIN stations src ON r1.station_id = src.station_id
+             JOIN stations dest ON r2.station_id = dest.station_id
+             JOIN users u ON b.user_id = u.user_id
+             WHERE b.pnr = ?`,
+            [pnr]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Invalid PNR or booking not found.' });
+        }
+
+        const booking = rows[0];
+
+        // Fetch passengers
+        const [passengers] = await pool.query(
+            'SELECT passenger_id, passenger_name, age, gender, seat_number, status, wl_position FROM booking_passengers WHERE booking_id = ?',
+            [booking.booking_id]
+        );
+
+        return res.json({
+            bookingId: booking.booking_id,
+            pnr: booking.pnr,
+            status: booking.status,
+            journeyDate: booking.journey_date,
+            bookingTime: booking.booking_time,
+            classCode: booking.class_code,
+            quotaCode: booking.quota_code,
+            totalPassengers: booking.total_passengers,
+            trainName: booking.train_name,
+            departure: booking.source_city || booking.source_station,
+            destination: booking.dest_city || booking.dest_station,
+            passengers: passengers
+        });
+
+    } catch (err) {
+        console.error('Get by PNR error:', err);
+        return res.status(500).json({ error: 'Database error fetching PNR.' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────
 // GET /api/bookings/:bookingId  [auth required]
 // Single booking with full passenger list
 // ─────────────────────────────────────────────────────────────────
