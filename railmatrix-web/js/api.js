@@ -38,6 +38,8 @@ async function apiFetch(path, opts = {}) {
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
+window.apiFetch = (path, opts) => apiFetch(path, opts);
+
 
 // ── Admin Base fetch ────────────────────────────────────────────
 async function adminFetch(path, opts = {}) {
@@ -75,11 +77,20 @@ const AdminAPI = {
       body: JSON.stringify({ email, password })
     });
   },
-  async getStats() { return adminFetch('/admin/stats'); },
-  async getUsers() { return adminFetch('/admin/users'); },
-  async getTrains() { return adminFetch('/admin/trains'); },
+  async getStats()    { return adminFetch('/admin/stats'); },
+  async getUsers()    { return adminFetch('/admin/users'); },
+  async getTrains()   { return adminFetch('/admin/trains'); },
   async getBookings() { return adminFetch('/admin/bookings'); },
-  async getStations() { return adminFetch('/stations/suggest?q='); }
+  async getStations() { return adminFetch('/stations/suggest?q='); },
+  async createTrain(payload) {
+    return adminFetch('/admin/trains', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  async createStation(payload) {
+    return adminFetch('/admin/stations', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  async suspendUser(userId) {
+    return adminFetch(`/admin/users/${userId}/suspend`, { method: 'PATCH' });
+  }
 };
 
 // ── Stations ────────────────────────────────────────────────────

@@ -111,13 +111,14 @@
       </div>
       <div style="background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden;">
         <table class="admin-table">
-          <thead><tr><th>ID</th><th>Station Name</th><th>City</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Station Name</th><th>City</th><th>Code</th></tr></thead>
           <tbody id="stations-tbody">
             <tr><td colspan="4" style="text-align:center;">Loading stations...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
+
 
     <!-- BOOKINGS VIEW -->
     <div id="view-bookings" class="view-section">
@@ -136,53 +137,88 @@
 
   </main>
 
-  <!-- Modals -->
+  <!-- Suspend User Modal -->
   <div class="modal-overlay" id="block-modal">
     <div class="modal">
-      <div class="modal-header"><div class="modal-title">Suspend User</div><button class="close-btn" onclick="closeBlockModal()">×</button></div>
+      <div class="modal-header"><div class="modal-title" style="color:var(--red);">⚠️ Suspend User</div><button class="close-btn" onclick="closeBlockModal()">×</button></div>
       <p style="color:var(--text-muted); margin-bottom:24px;">Are you sure you want to suspend this user? They will not be able to log in or book tickets.</p>
       <div style="display:flex;gap:12px;justify-content:flex-end;">
         <button class="btn btn-ghost" onclick="closeBlockModal()">Cancel</button>
-        <button class="btn btn-primary" style="background:var(--red);border-color:var(--red);" onclick="submitBlock()">Suspend User</button>
+        <button class="btn btn-danger" onclick="submitBlock()">Suspend User</button>
       </div>
     </div>
   </div>
 
+  <!-- Create Train Modal -->
   <div class="modal-overlay" id="train-modal">
-    <div class="modal">
-      <div class="modal-header"><div class="modal-title">Create New Train</div><button class="close-btn" onclick="closeTrainModal()">×</button></div>
-      <div style="display:flex;flex-direction:column;gap:16px;">
-        <input type="text" class="input" placeholder="Train Name (e.g. Rajdhani Express)">
-        <select class="input"><option>SUPERFAST</option><option>EXPRESS</option><option>PASSENGER</option></select>
-        <input type="number" class="input" placeholder="Total Seats (e.g. 500)">
-        <div style="display:flex;gap:12px;">
-          <input type="number" class="input" placeholder="Base Fare">
-          <input type="number" class="input" placeholder="Fare per KM">
+    <div class="modal" style="max-width:640px;">
+      <div class="modal-header"><div class="modal-title">🚆 Create New Train</div><button class="close-btn" onclick="closeTrainModal()">×</button></div>
+      <div id="train-modal-alert" class="alert" style="margin-bottom:16px;"></div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="field">
+            <label>Train Name</label>
+            <input id="train-name" type="text" class="input" placeholder="e.g. Rajdhani Express">
+          </div>
+          <div class="field">
+            <label>Train Type</label>
+            <select id="train-type" class="input">
+              <option value="Superfast">Superfast</option>
+              <option value="Express">Express</option>
+              <option value="Passenger">Passenger</option>
+            </select>
+          </div>
         </div>
-        <div class="divider" style="margin:8px 0;">Routes</div>
-        <div id="route-builder" style="display:flex;flex-direction:column;gap:8px;">
-          <div class="route-stop" style="display:flex;gap:8px;"><input type="text" class="input" placeholder="Station Code" style="flex:1;"><input type="number" class="input" placeholder="Day" style="width:80px;"><input type="time" class="input"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="field">
+            <label>Base Fare (₹)</label>
+            <input id="train-base-fare" type="number" class="input" placeholder="e.g. 50" min="0">
+          </div>
+          <div class="field">
+            <label>Fare per KM (₹)</label>
+            <input id="train-fare-km" type="number" class="input" placeholder="e.g. 1.2" step="0.1" min="0">
+          </div>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="addRouteStop()">+ Add Stop</button>
+        <div class="divider">Route Stops</div>
+        <div style="display:grid;grid-template-columns:1fr 70px 1fr 1fr 90px;gap:8px;padding:0 4px;">
+          <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Station</span>
+          <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Dep</span>
+          <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Arr</span>
+          <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">KM</span>
+          <span></span>
+        </div>
+        <div id="route-builder" style="display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;padding-right:4px;"></div>
+        <button class="btn btn-ghost btn-sm" style="align-self:flex-start;" onclick="addRouteStop()">+ Add Stop</button>
       </div>
       <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;">
         <button class="btn btn-ghost" onclick="closeTrainModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveTrain()">Save Train</button>
+        <button id="save-train-btn" class="btn btn-primary" onclick="saveTrain()">Save Train</button>
       </div>
     </div>
   </div>
 
+  <!-- Add Station Modal -->
   <div class="modal-overlay" id="station-modal">
-    <div class="modal" style="max-width:400px;">
-      <div class="modal-header"><div class="modal-title">Add Station</div><button class="close-btn" onclick="closeStationModal()">×</button></div>
-      <div style="display:flex;flex-direction:column;gap:16px;">
-        <input type="text" class="input" placeholder="Station Code (e.g. NDLS)">
-        <input type="text" class="input" placeholder="Station Name (e.g. New Delhi)">
-        <input type="text" class="input" placeholder="City">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header"><div class="modal-title">🏢 Add Station</div><button class="close-btn" onclick="closeStationModal()">×</button></div>
+      <div id="station-modal-alert" class="alert" style="margin-bottom:16px;"></div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="field">
+          <label>Station Code (optional)</label>
+          <input id="station-code" type="text" class="input" placeholder="e.g. NDLS" maxlength="10" style="text-transform:uppercase;">
+        </div>
+        <div class="field">
+          <label>Station Name *</label>
+          <input id="station-name" type="text" class="input" placeholder="e.g. New Delhi Junction">
+        </div>
+        <div class="field">
+          <label>City *</label>
+          <input id="station-city" type="text" class="input" placeholder="e.g. New Delhi">
+        </div>
       </div>
       <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;">
         <button class="btn btn-ghost" onclick="closeStationModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveStation()">Save Station</button>
+        <button id="save-station-btn" class="btn btn-primary" onclick="saveStation()">Save Station</button>
       </div>
     </div>
   </div>

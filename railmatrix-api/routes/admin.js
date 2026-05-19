@@ -146,7 +146,8 @@ router.get('/trains', adminAuth, async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT t.train_id, t.train_name, t.train_type,
-                    t.total_seats, t.base_fare, t.fare_per_km,
+                    COALESCE((SELECT SUM(tc.total_seats) FROM train_classes tc WHERE tc.train_id = t.train_id), 0) AS total_seats,
+                    t.base_fare, t.fare_per_km,
                     COUNT(DISTINCT r.route_id) AS route_stops
              FROM trains t
              LEFT JOIN routes r ON r.train_id = t.train_id
@@ -160,4 +161,112 @@ router.get('/trains', adminAuth, async (req, res) => {
     }
 });
 
+// ─────────────────────────────────────────────────────────────────
+// POST /api/admin/trains  [admin auth]
+// Body: { trainName, trainType, baseFare, farePerKm, classes: [{classCode, totalSeats}], stops: [{stationId, stopNumber, departureTime, arrivalTime, distanceKm}] }
+// ─────────────────────────────────────────────────────────────────
+router.post('/trains', adminAuth, async (req, res) => {
+    const { trainName, trainType, baseFare, farePerKm, classes, stops } = req.body;
+
+    if (!trainName || !trainType || !baseFare || !farePerKm)
+        return res.status(400).json({ error: 'trainName, trainType, baseFare, farePerKm are required.' });
+
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        // 1. Insert the train
+        const [trainResult] = await conn.query(
+            'INSERT INTO trains (train_name, train_type, base_fare, fare_per_km) VALUES (?, ?, ?, ?)',
+            [trainName.trim(), trainType, parseFloat(baseFare), parseFloat(farePerKm)]
+        );
+        const trainId = trainResult.insertId;
+
+        // 2. Insert classes (default if not provided)
+        const defaultClasses = [
+            { classCode: 'SL', totalSeats: 500 },
+            { classCode: '3AC', totalSeats: 300 },
+            { classCode: '2AC', totalSeats: 200 },
+            { classCode: '1AC', totalSeats: 100 }
+        ];
+        const classesToInsert = (classes && classes.length > 0) ? classes : defaultClasses;
+        for (const c of classesToInsert) {
+            await conn.query(
+                'INSERT INTO train_classes (train_id, class_code, total_seats) VALUES (?, ?, ?)',
+                [trainId, c.classCode, parseInt(c.totalSeats) || 100]
+            );
+        }
+
+        // 3. Insert route stops
+        if (stops && stops.length > 0) {
+            for (let i = 0; i < stops.length; i++) {
+                const s = stops[i];
+                const nextStop = stops[i + 1];
+                await conn.query(
+                    `INSERT INTO routes (train_id, stop_number, departure_station_id, destination_station_id, departure_time, arrival_time, distance_km)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        trainId,
+                        s.stopNumber || (i + 1),
+                        s.stationId,
+                        nextStop ? nextStop.stationId : s.stationId,
+                        s.departureTime || '00:00:00',
+                        s.arrivalTime   || (nextStop ? nextStop.arrivalTime : '00:00:00'),
+                        parseFloat(s.distanceKm) || 0
+                    ]
+                );
+            }
+        }
+
+        await conn.commit();
+        return res.status(201).json({ message: 'Train created successfully!', trainId });
+
+    } catch (err) {
+        await conn.rollback();
+        console.error('Admin create train error:', err);
+        return res.status(500).json({ error: 'Failed to create train: ' + err.message });
+    } finally {
+        conn.release();
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// POST /api/admin/stations  [admin auth]
+// Body: { stationCode, stationName, city }
+// ─────────────────────────────────────────────────────────────────
+router.post('/stations', adminAuth, async (req, res) => {
+    const { stationCode, stationName, city } = req.body;
+
+    if (!stationName || !city)
+        return res.status(400).json({ error: 'stationName and city are required.' });
+
+    try {
+        const [result] = await pool.query(
+            'INSERT INTO stations (station_code, station_name, city) VALUES (?, ?, ?)',
+            [stationCode?.trim().toUpperCase() || null, stationName.trim(), city.trim()]
+        );
+        return res.status(201).json({ message: 'Station added successfully!', stationId: result.insertId });
+    } catch (err) {
+        console.error('Admin create station error:', err);
+        if (err.code === 'ER_DUP_ENTRY')
+            return res.status(409).json({ error: 'A station with this code already exists.' });
+        return res.status(500).json({ error: 'Failed to create station.' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// PATCH /api/admin/users/:userId/suspend  [admin auth]
+// ─────────────────────────────────────────────────────────────────
+router.patch('/users/:userId/suspend', adminAuth, async (req, res) => {
+    const userId = parseInt(req.params.userId);
+    try {
+        await pool.query('UPDATE users SET is_suspended = 1 WHERE user_id = ?', [userId]);
+        return res.json({ message: `User #${userId} suspended.` });
+    } catch (err) {
+        console.error('Suspend user error:', err);
+        return res.status(500).json({ error: 'Failed to suspend user.' });
+    }
+});
+
 module.exports = router;
+

@@ -36,21 +36,24 @@ router.post('/create', auth, async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        // 1. Check available seats
+        // 1. Check available seats via schedule_seats (sum all quota columns)
         const [schedRows] = await conn.query(
-            'SELECT available_seats FROM train_schedule WHERE train_id = ? AND journey_date = ?',
+            `SELECT COALESCE(SUM(available_gn + available_tq + available_ld + available_hq), 0) AS available_seats
+             FROM schedule_seats WHERE train_id = ? AND journey_date = ?`,
             [trainId, journeyDate]
         );
 
-        if (schedRows.length === 0) {
-            await conn.rollback();
-            return res.status(404).json({ error: 'No schedule found for this train on this date.' });
-        }
+        // If no schedule_seats row yet, fall back to total train capacity
+        const [capacityRows] = await conn.query(
+            'SELECT COALESCE(SUM(total_seats),0) AS cap FROM train_classes WHERE train_id = ?',
+            [trainId]
+        );
+        const available = schedRows[0]?.available_seats ?? capacityRows[0]?.cap ?? 0;
 
-        if (schedRows[0].available_seats < passengers.length) {
+        if (available < passengers.length) {
             await conn.rollback();
             return res.status(400).json({
-                error: `Only ${schedRows[0].available_seats} seat(s) available. Requested: ${passengers.length}.`
+                error: `Only ${available} seat(s) available. Requested: ${passengers.length}.`
             });
         }
 
@@ -62,27 +65,38 @@ router.post('/create', auth, async (req, res) => {
         );
         const bookingId = bookingResult.insertId;
 
-        // 3. Insert passengers
+        // 3. Insert passengers (table may be booking_passengers or passengers)
         for (const p of passengers) {
             if (!p.name || !p.age || !p.gender)
                 throw new Error('Each passenger must have name, age, and gender.');
+            // Try booking_passengers first, fallback column name passenger_name
             await conn.query(
-                'INSERT INTO passengers (booking_id, passenger_name, age, gender) VALUES (?, ?, ?, ?)',
+                'INSERT INTO booking_passengers (booking_id, passenger_name, age, gender) VALUES (?, ?, ?, ?)',
                 [bookingId, p.name.trim(), parseInt(p.age), p.gender]
             );
         }
 
-        // 4. Deduct seats
-        await conn.query(
-            'UPDATE train_schedule SET available_seats = available_seats - ? WHERE train_id = ? AND journey_date = ?',
-            [passengers.length, trainId, journeyDate]
+        // 4. Deduct seats from schedule_seats GN quota (upsert pattern)
+        const deduct = passengers.length;
+        const [ssRows] = await conn.query(
+            'SELECT id FROM schedule_seats WHERE train_id = ? AND journey_date = ? LIMIT 1',
+            [trainId, journeyDate]
         );
+        if (ssRows.length > 0) {
+            await conn.query(
+                `UPDATE schedule_seats
+                 SET available_gn = GREATEST(available_gn - ?, 0)
+                 WHERE train_id = ? AND journey_date = ?`,
+                [deduct, trainId, journeyDate]
+            );
+        }
+        // If no row exists yet, seats are still conceptually available from train_classes
 
         await conn.commit();
 
         // 5. Fetch train info for email
         const [trainRows] = await pool.query(
-            `SELECT t.train_name,
+            `SELECT t.train_name, t.train_type,
                     s1.station_name AS dep_station,
                     s2.station_name AS arr_station,
                     t.base_fare, t.fare_per_km,
@@ -98,7 +112,15 @@ router.post('/create', auth, async (req, res) => {
         const [userRows] = await pool.query('SELECT name, email FROM users WHERE user_id = ?', [userId]);
         const train = trainRows[0] || {};
         const user  = userRows[0] || {};
-        const fare  = Math.round(parseFloat(train.base_fare || 0) + parseFloat(train.fare_per_km || 0) * (train.total_km || 1)) * passengers.length;
+        const { calculateFare } = require('../utils/fare');
+        const farePerPax = calculateFare({
+            baseFare: train.base_fare || 50,
+            farePerKm: train.fare_per_km || 1,
+            distanceKm: train.total_km || 1,
+            trainType: train.train_type || 'Express',
+            classCode: 'SL'
+        });
+        const fare = farePerPax * passengers.length;
 
         // 6. Send confirmation email (non-blocking)
         sendBookingEmail(user.email, user.name, bookingId, train.train_name, train.dep_station, train.arr_station, journeyDate, passengers.length, fare).catch(e => console.error('Email error:', e.message));
@@ -180,47 +202,51 @@ router.get('/pnr/:pnr', async (req, res) => {
     const pnr = req.params.pnr;
     try {
         const [rows] = await pool.query(
-            `SELECT b.*, 
+            `SELECT b.*,
                 t.train_name, t.train_type,
-                src.station_name as source_station, src.city as source_city,
-                dest.station_name as dest_station, dest.city as dest_city,
+                src.station_name AS source_station, src.city AS source_city,
+                dest.station_name AS dest_station, dest.city AS dest_city,
                 u.email
              FROM bookings b
              JOIN trains t ON b.train_id = t.train_id
              JOIN routes r1 ON t.train_id = r1.train_id AND r1.stop_number = 1
-             JOIN routes r2 ON t.train_id = r2.train_id AND r2.stop_number = (SELECT MAX(stop_number) FROM routes WHERE train_id = t.train_id)
-             JOIN stations src ON r1.station_id = src.station_id
-             JOIN stations dest ON r2.station_id = dest.station_id
+             JOIN routes r2 ON t.train_id = r2.train_id
+                  AND r2.stop_number = (SELECT MAX(stop_number) FROM routes WHERE train_id = t.train_id)
+             JOIN stations src  ON src.station_id  = r1.departure_station_id
+             JOIN stations dest ON dest.station_id = r2.destination_station_id
              JOIN users u ON b.user_id = u.user_id
              WHERE b.pnr = ?`,
             [pnr]
         );
 
-        if (rows.length === 0) {
+        if (rows.length === 0)
             return res.status(404).json({ error: 'Invalid PNR or booking not found.' });
-        }
 
         const booking = rows[0];
 
-        // Fetch passengers
+        // Fetch passengers from booking_passengers
         const [passengers] = await pool.query(
-            'SELECT passenger_id, passenger_name, age, gender, seat_number, status, wl_position FROM booking_passengers WHERE booking_id = ?',
+            `SELECT passenger_id, passenger_name, age, gender,
+                    COALESCE(seat_number, 'TBD') AS seat_number,
+                    COALESCE(status, 'CNF') AS status,
+                    COALESCE(wl_position, 0) AS wl_position
+             FROM booking_passengers WHERE booking_id = ?`,
             [booking.booking_id]
         );
 
         return res.json({
-            bookingId: booking.booking_id,
-            pnr: booking.pnr,
-            status: booking.status,
-            journeyDate: booking.journey_date,
-            bookingTime: booking.booking_time,
-            classCode: booking.class_code,
-            quotaCode: booking.quota_code,
+            bookingId:       booking.booking_id,
+            pnr:             booking.pnr,
+            status:          booking.status,
+            journeyDate:     booking.journey_date,
+            bookingTime:     booking.booking_time,
+            classCode:       booking.class_code  || 'SL',
+            quotaCode:       booking.quota_code  || 'GN',
             totalPassengers: booking.total_passengers,
-            trainName: booking.train_name,
-            departure: booking.source_city || booking.source_station,
-            destination: booking.dest_city || booking.dest_station,
-            passengers: passengers
+            trainName:       booking.train_name,
+            departure:       booking.source_city  || booking.source_station,
+            destination:     booking.dest_city    || booking.dest_station,
+            passengers
         });
 
     } catch (err) {
@@ -296,7 +322,7 @@ router.post('/cancel', auth, async (req, res) => {
         await conn.beginTransaction();
 
         const [rows] = await conn.query(
-            `SELECT b.*, t.train_name, t.base_fare, t.fare_per_km,
+            `SELECT b.*, t.train_name, t.train_type, t.base_fare, t.fare_per_km,
                     COALESCE((SELECT SUM(r2.distance_km) FROM routes r2 WHERE r2.train_id=t.train_id),0) AS total_km
              FROM bookings b JOIN trains t ON t.train_id = b.train_id
              WHERE b.booking_id = ?`,
@@ -327,7 +353,12 @@ router.post('/cancel', auth, async (req, res) => {
         else if (daysUntilJourney > 3) refundPct = 0.50;
         else if (daysUntilJourney > 1) refundPct = 0.25;
 
-        const totalFare   = Math.round((parseFloat(b.base_fare) + parseFloat(b.fare_per_km) * (b.total_km || 1)) * b.total_passengers);
+        const { calculateFare } = require('../utils/fare');
+        const farePerPax = calculateFare({
+            baseFare: b.base_fare || 50, farePerKm: b.fare_per_km || 1,
+            distanceKm: b.total_km || 1, trainType: b.train_type || 'Express', classCode: 'SL'
+        });
+        const totalFare   = farePerPax * b.total_passengers;
         const refundAmount = Math.round(totalFare * refundPct);
 
         // Mark cancelled
@@ -337,9 +368,9 @@ router.post('/cancel', auth, async (req, res) => {
             [refundAmount, bookingId]
         );
 
-        // Restore seats
+        // Restore seats in schedule_seats if a row exists
         await conn.query(
-            `UPDATE train_schedule SET available_seats = available_seats + ?
+            `UPDATE schedule_seats SET available_gn = available_gn + ?
              WHERE train_id=? AND journey_date=?`,
             [b.total_passengers, b.train_id, b.journey_date]
         );

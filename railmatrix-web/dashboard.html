@@ -236,7 +236,7 @@
             <div class="b-grid">
               <div class="b-item"><div class="lbl">Journey Date</div><div class="val">${formatDate(b.journeyDate)}</div></div>
               <div class="b-item"><div class="lbl">Passengers</div><div class="val">${b.totalPassengers}</div></div>
-              <div class="b-item"><div class="lbl">Class / Quota</div><div class="val">${b.classCode} (${b.quotaCode})</div></div>
+              <div class="b-item"><div class="lbl">Train Type</div><div class="val">${b.trainType || '—'}</div></div>
               <div class="b-item"><div class="lbl">Booked On</div><div class="val">${formatDate(b.bookingTime)}</div></div>
             </div>
             <div class="b-footer">
@@ -282,12 +282,11 @@
             }
         }
         function viewDetails(id) {
-            const b = currentBookings.find(x => x.bookingId === id);
-            if (b && b.pnr) {
-                window.location.href = `pnr.html?pnr=${b.pnr}`;
-            } else {
-                alert('PNR not found for this booking.');
-            }
+            // Fetch the single booking to get its PNR, then navigate to pnr.html
+            apiFetch(`/bookings/${id}`).then(b => {
+                if (b && b.pnr) window.location.href = `pnr.html?pnr=${b.pnr}`;
+                else showAlert('dash-alert', 'Could not retrieve PNR for this booking.');
+            }).catch(() => showAlert('dash-alert', 'Failed to load booking details.'));
         }
     </script>
 </body>
