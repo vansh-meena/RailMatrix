@@ -1,0 +1,240 @@
+# RailMatrix — Web Backend API (Phase 1) Implementation Plan
+
+## What We're Building
+
+A **Node.js + Express REST API** that sits between the future website frontend and your existing MySQL database on Railway.app. The Java Swing app keeps working exactly as-is — the API is a completely separate addition. We also fix 3 bugs/features in the Java app simultaneously.
+
+```
+[Website (Phase 2)]        [Java Swing App — unchanged]
+        ↕ HTTP                      ↕ JDBC
+  [Node.js API]  ─────────→  [MySQL on Railway.app]
+```
+
+The API will live inside your existing project at: `SmartRailOptimizer/railmatrix-api/`
+
+---
+
+## Color Palette (from your Java app — we'll reuse this for the website too)
+
+| Name | Value | Used For |
+|---|---|---|
+| PRIMARY | `#483478` | Buttons, headers, accents |
+| PRIMARY_DARK | `#32235A` | Navbar, dark areas |
+| ACCENT | `#9B59B6` | Hover states, highlights |
+| BG_LIGHT | `#F5F0FF` | Page backgrounds |
+| ERROR_RED | `#C83232` | Errors |
+| SUCCESS_GREEN | `#28A050` | Success states |
+
+---
+
+## Part A — Node.js REST API (New)
+
+The API folder structure will be:
+
+```
+railmatrix-api/
+├── server.js              ← entry point, starts Express
+├── package.json
+├── .env                   ← DB credentials (not committed)
+├── db.js                  ← MySQL connection pool
+└── routes/
+    ├── auth.js            ← /api/auth/register, /api/auth/login
+    ├── trains.js          ← /api/trains/search, /api/stations/suggest
+    ├── bookings.js        ← /api/bookings/create, /api/bookings/user/:id, /api/bookings/cancel
+    └── admin.js           ← /api/admin/login, /api/admin/stats, /api/admin/bookings
+```
+
+### API Endpoints
+
+| Method | Endpoint | What it does |
+|---|---|---|
+| `POST` | `/api/auth/register` | Register new user (with password rules + email verification) |
+| `POST` | `/api/auth/login` | Login user, returns JWT token |
+| `GET` | `/api/auth/verify-email?token=xxx` | Verify email via token link |
+| `GET` | `/api/stations/suggest?q=del` | Returns matching stations (for autocomplete) |
+| `GET` | `/api/trains/search?from=X&to=Y&date=Z` | Search trains between two **valid** stations |
+| `POST` | `/api/bookings/create` | Book a ticket (auth required) |
+| `GET` | `/api/bookings/user/:userId` | Get all bookings for a user |
+| `POST` | `/api/bookings/cancel` | Cancel a booking |
+| `POST` | `/api/admin/login` | Admin login |
+| `GET` | `/api/admin/stats` | Dashboard stats (total bookings, users, trains) |
+| `GET` | `/api/admin/bookings` | All bookings (admin only) |
+
+### Key Implementation Details
+
+**Database connection** (`db.js`):
+- Uses `mysql2` npm package (modern, supports promises)
+- Connection pool (not single connection) — handles multiple requests
+- Credentials loaded from `.env` file (same Railway.app credentials you already have)
+
+**Authentication** (`routes/auth.js`):
+- Passwords hashed with `bcrypt` (compatible with your Java SHA-256 — we'll use a `password_hash` column alongside `password` for web users, or migrate — see open questions)
+- JWT tokens issued on login (expire in 24h) — website stores this in localStorage
+- Email verification: sends a link to the user's email before they can log in
+
+**Station Suggestions** (`routes/trains.js`):
+```sql
+SELECT station_name FROM stations 
+WHERE station_name LIKE ? OR city LIKE ?
+LIMIT 8
+```
+This is the fix for your professor's feedback — the website only lets you search if you pick a real station from the dropdown.
+
+**Train Search with validation** (`routes/trains.js`):
+```sql
+-- First validate both stations exist
+-- Then search routes table for trains connecting them
+SELECT t.train_id, t.train_name, t.train_type, t.base_fare, t.fare_per_km,
+       ts.available_seats, r.distance_km, r.departure_time, r.arrival_time
+FROM trains t
+JOIN routes r ON r.train_id = t.train_id  
+JOIN stations s1 ON s1.station_id = r.departure_station_id
+JOIN stations s2 ON s2.station_id = r.destination_station_id
+JOIN train_schedule ts ON ts.train_id = t.train_id AND ts.journey_date = ?
+WHERE s1.station_name = ? AND s2.station_name = ?
+```
+If station doesn't exist → returns `400 Bad Request` with message, **never opens a results page**.
+
+**Password Rules** (enforced in API):
+- Minimum 8 characters
+- At least 1 uppercase letter
+- At least 1 number  
+- At least 1 special character (@, #, !, etc.)
+- Checked before saving to DB, returns clear error messages
+
+**Email Verification flow**:
+1. User registers → API creates a `verification_token` (random string)
+2. API sends email with link: `http://your-api/api/auth/verify-email?token=xxx`
+3. User clicks link → token matched, user marked as `is_verified = true` in DB
+4. Login blocked until verified
+
+---
+
+## Part B — Java App Fixes (3 Changes)
+
+These are changes to your existing Java Swing app to fix the professor's feedback.
+
+### Fix 1 — Station Suggestions in Search (UserDashboard.java)
+
+**Problem**: User types anything and hits Search → `SearchResultGUI` opens with empty results.
+
+**Fix**: Add a `JList` dropdown below `fromField` and `toField` that shows matching stations as user types (using `DocumentListener`). Query the DB with `LIKE %input%`. If user hits Search without selecting a valid station from the list → show error, **don't open** `SearchResultGUI`.
+
+Files changed: `UserDashboard.java`
+
+### Fix 2 — Email Verification on Register (RegisterGUI.java + UserDAO.java)
+
+**Problem**: Anyone can register with a fake email.
+
+**Fix**: 
+- Add `is_verified` column to `users` table (migration needed)
+- Add `verification_token` column  
+- On register: save token, send email via existing `EmailService`
+- On login: check `is_verified = 1`, if not → show "Please verify your email first"
+
+Files changed: `RegisterGUI.java`, `UserDAO.java`, `EmailService.java`, `schema.sql`
+
+### Fix 3 — Password Strength Validation (RegisterGUI.java)
+
+**Problem**: Users can register with "123" as password.
+
+**Fix**: Add real-time password strength indicator below the password field. Show checkmarks/crosses for:
+- ✓ Min 8 characters
+- ✓ At least 1 uppercase
+- ✓ At least 1 number
+- ✓ At least 1 special character
+
+Prevent form submission if rules not met.
+
+Files changed: `RegisterGUI.java`
+
+---
+
+## Proposed Changes — File by File
+
+---
+
+### Node.js API (All New Files)
+
+#### [NEW] `railmatrix-api/package.json`
+#### [NEW] `railmatrix-api/.env`
+#### [NEW] `railmatrix-api/server.js`
+#### [NEW] `railmatrix-api/db.js`
+#### [NEW] `railmatrix-api/routes/auth.js`
+#### [NEW] `railmatrix-api/routes/trains.js`
+#### [NEW] `railmatrix-api/routes/bookings.js`
+#### [NEW] `railmatrix-api/routes/admin.js`
+
+---
+
+### Java App Fixes
+
+#### [MODIFY] [UserDashboard.java](file:///Users/vanshmeena/IdeaProjects/SmartRailOptimizer/src/com/smartrail/gui/UserDashboard.java)
+Add station autocomplete dropdown beneath search fields. Block search if no valid station selected.
+
+#### [MODIFY] [RegisterGUI.java](file:///Users/vanshmeena/IdeaProjects/SmartRailOptimizer/src/com/smartrail/gui/RegisterGUI.java)
+Add password strength indicator. Add email verification flow trigger on register.
+
+#### [MODIFY] [UserDAO.java](file:///Users/vanshmeena/IdeaProjects/SmartRailOptimizer/src/com/smartrail/dao/UserDAO.java)
+Add `registerWithVerification()` method. Update `login()` to check `is_verified`.
+
+#### [MODIFY] [EmailService.java](file:///Users/vanshmeena/IdeaProjects/SmartRailOptimizer/src/com/smartrail/util/EmailService.java)
+Add `sendVerificationEmail()` method.
+
+#### [MODIFY] [schema.sql](file:///Users/vanshmeena/IdeaProjects/SmartRailOptimizer/src/com/smartrail/database/schema.sql)
+Add `is_verified TINYINT DEFAULT 0` and `verification_token VARCHAR(64)` to `users` table.
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **Password Hashing Conflict**: Your Java app uses SHA-256 for passwords. The Node.js API should use bcrypt (industry standard). 
+> **Options**:
+> - A) Keep SHA-256 in both — simple, but less secure
+> - B) Use bcrypt in Node.js only, SHA-256 in Java — web and app users have separate password schemes
+> - C) Migrate all Java passwords to bcrypt too — most secure, requires a one-time DB update
+>
+> **My recommendation: Option A for now** (SHA-256 in both), upgrade to bcrypt later when we do Phase 2 properly. Keeps things simple for now.
+
+> [!IMPORTANT]
+> **Email Verification for existing users**: There are already users in your Railway.app database who registered without verification. 
+> **Options**:
+> - A) Only new users need to verify — existing users keep working
+> - B) Force re-verification for everyone
+>
+> **My recommendation: Option A** — don't break existing accounts.
+
+> [!NOTE]
+> **Where to run the Node.js API?** For now we'll run it locally (`localhost:3000`) for testing. Once it's working, we'll deploy it free on Railway.app (same place as your DB) or Render.com.
+
+---
+
+## Verification Plan
+
+### After API is built:
+- Test all endpoints using a browser or Postman
+- Verify station suggestions return correct results with partial names
+- Verify train search returns `400` for invalid station names
+- Verify registration fails with weak password
+- Verify email verification link works
+
+### After Java fixes:
+- Run the Java app, try typing a partial station name — suggestions should appear
+- Try searching with a made-up station — should show error, not open SearchResultGUI
+- Try registering with "abc" as password — should show strength warnings and block submit
+- Register with real email → verify inbox for verification email → click link → try login
+
+---
+
+## Implementation Order
+
+1. **DB migration** — add 2 columns to `users` table (5 min, run on Railway.app)
+2. **Node.js API setup** — `package.json`, `server.js`, `db.js` (15 min)
+3. **Auth routes** — register, login, verify-email (30 min)
+4. **Trains + Stations routes** — search with validation, suggestions (20 min)
+5. **Bookings routes** — create, list, cancel (25 min)
+6. **Admin routes** — login, stats (15 min)
+7. **Java Fix 1** — Station autocomplete in UserDashboard (30 min)
+8. **Java Fix 2** — Email verification in RegisterGUI + UserDAO (20 min)
+9. **Java Fix 3** — Password strength in RegisterGUI (15 min)

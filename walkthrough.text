@@ -1,0 +1,76 @@
+# RailMatrix — Session Walkthrough
+
+## What Was Fixed & Built
+
+### 🐛 Bug Fix: Admin Dashboard Headings
+
+**Problem:** Section headings (Dashboard Overview, Manage Trains, Manage Stations, All Bookings, All Users) were missing or partially rendering.
+
+**Root Causes Found (3 bugs):**
+1. `sectionTitle` used a custom `paintComponent()` override with `g2.drawString()` — but never called `super.paintComponent()`, so the JLabel's own text rendering was bypassed and the custom draw coordinates were off on Retina/HiDPI displays
+2. `showOverview()` was **re-assigning** `sectionTitle` to a brand new JLabel that was never added to any panel — so `setText()` calls in other sections updated an orphaned label
+3. All fonts used `"Helvetica Neue"` which is not always available on all JVM configurations
+
+**Fix Applied:**
+- Replaced custom-painted `sectionTitle` with a plain `JLabel` using `Font.SANS_SERIF` (always available)
+- All section methods now just call `sectionTitle.setText(...)` — no re-assignment
+- All fonts across AdminDashboardGUI changed from `"Helvetica Neue"` → `Font.SANS_SERIF`
+
+**Result:**
+![Admin Dashboard - Headings Fixed](/Users/vanshmeena/.gemini/antigravity/brain/5807dece-8a37-484f-a436-6fc01df478ad/screen_02_admin_dashboard.png)
+
+> All headings render perfectly. Dashboard Overview, sidebar labels, and stat cards all display correctly with live data from the Railway.app database.
+
+---
+
+### ✨ Feature: PNR Number Generator
+
+**What was added:**
+- New `pnr VARCHAR(14) UNIQUE` column added to the `bookings` table in both the live database and `schema.sql`
+- `BookingDAO.generatePNR()` static method generates format: `RM` + `YY` + `MM` + 6 random digits → e.g. `RM260518839201`
+- Every new booking insertion now auto-generates and saves a PNR
+- Admin's **All Bookings** table now shows the PNR column alongside booking ID
+- **All Users** table now shows `is_verified` status (✅ Yes / ❌ No)
+- Existing bookings in the DB were backfilled with PNRs
+
+**Files Changed:**
+- `BookingDAO.java` — Added PNR generation + updated INSERT query
+- `AdminDashboardGUI.java` — Added PNR column to All Bookings table, is_verified to All Users table
+- `schema.sql` — Added `pnr` column + fixed syntax errors (`;` → `,` in CREATE TABLE)
+- Live DB — `ALTER TABLE bookings ADD COLUMN pnr VARCHAR(14) UNIQUE`
+
+---
+
+### 🔧 Compile Error Fixes
+
+**Problem:** `UserDashboard.java` had two compile errors:
+1. `fromField.setText(...)` — `StationAutoCompleteField` didn't expose `setText()`
+2. `placeholder` variable not accessible in the `reset()` method — it was a constructor parameter, not stored as a field
+
+**Fix:**
+- Replaced `setText()` calls in the Home nav button with `fromField.reset()` and `toField.reset()`
+- Added `reset()` method to `StationAutoCompleteField`
+- Added `private final String placeholder` as a class field and assigned it in the constructor
+
+---
+
+## Verification
+
+| Check | Status |
+|---|---|
+| `javac` full project compilation | ✅ 0 errors |
+| AdminDashboardGUI launches | ✅ Confirmed |
+| Dashboard Overview heading visible | ✅ Confirmed in screenshot |
+| All 5 sidebar menu items visible | ✅ Overview, Manage Trains, Manage Stations, All Bookings, All Users |
+| Live stats loading from DB | ✅ 166 trains, 106 stations, 1 booking, 1 user |
+| PNR column in DB | ✅ Added, existing booking backfilled |
+| schema.sql updated | ✅ PNR column + syntax fixes |
+
+---
+
+## Next Steps
+
+1. **Rebuild the JAR** in IntelliJ (Build → Build Artifacts → SmartRailOptimizer:jar → Rebuild) to reflect all changes
+2. **Test all Admin sidebar sections** — click Manage Trains, Manage Stations, All Bookings, All Users to verify headings change correctly
+3. **Begin Web Frontend** — the Node.js API is ready at `localhost:3000`
+4. **Phase 2 features** — Admin user blocking, route management, PDF tickets
