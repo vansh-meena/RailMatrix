@@ -142,20 +142,26 @@ public class LoginGUI extends JFrame {
         }
 
         UserDAO userDAO = new UserDAO();
+        UserDAO.LoginResult result = userDAO.loginWithStatus(email, pass);
 
-        if (!userDAO.isUserExists(email)) {
-            setStatus("No account found with this email.", ERROR_RED); return;
-        }
-
-        User user = userDAO.login(email, pass);
-
-        if (user == null) {
-            setStatus("Incorrect password. Please try again.", ERROR_RED);
-        } else {
-            setStatus("Login successful! Welcome " + user.getName(), SUCCESS_GREEN);
-            Timer t = new Timer(1000, e -> { dispose(); new UserDashboard(user.getUserId(), user.getName(), user.getEmail()); });
-            t.setRepeats(false);
-            t.start();
+        switch (result.status) {
+            case NOT_FOUND:
+                setStatus("No account found with this email.", ERROR_RED);
+                break;
+            case WRONG_PASSWORD:
+                setStatus("Incorrect password. Please try again.", ERROR_RED);
+                break;
+            case NOT_VERIFIED:
+                setStatus("Please verify your email before logging in.", new Color(200, 120, 0));
+                break;
+            case SUCCESS:
+                setStatus("Login successful! Welcome " + result.user.getName(), SUCCESS_GREEN);
+                Timer t = new Timer(1000, e -> { dispose(); new UserDashboard(result.user.getUserId(), result.user.getName(), result.user.getEmail()); });
+                t.setRepeats(false);
+                t.start();
+                break;
+            default:
+                setStatus("Login failed. Please try again.", ERROR_RED);
         }
     }
 

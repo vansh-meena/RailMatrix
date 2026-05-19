@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Train Results — RailMatrix</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .results-page { max-width: 900px; margin: 0 auto; padding: 40px; }
+    .results-header { margin-bottom: 32px; }
+    .route-display { display: flex; align-items: center; gap: 16px; font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; }
+    .route-arrow { color: var(--accent); }
+    .train-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; transition: all var(--transition); }
+    .train-card:hover { border-color: rgba(167,139,250,0.4); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+    .train-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+    .train-name { font-weight: 700; font-size: 1.1rem; }
+    .train-type { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .train-route-row { display: flex; align-items: center; gap: 20px; }
+    .train-time-box { text-align: center; }
+    .train-time-box .time { font-size: 1.8rem; font-weight: 800; }
+    .train-time-box .label { font-size: 0.75rem; color: var(--text-muted); }
+    .journey-line { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .journey-bar { width: 100%; height: 2px; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 2px; position: relative; }
+    .journey-bar::before, .journey-bar::after { content:''; position:absolute; top:50%; transform:translateY(-50%); width:8px;height:8px;background:var(--accent);border-radius:50%; }
+    .journey-bar::before{left:0} .journey-bar::after{right:0}
+    .journey-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 12px; }
+    .fare-display { font-size: 1.8rem; font-weight: 900; color: var(--accent); }
+    .no-trains { text-align: center; padding: 80px 40px; }
+    .no-trains .icon { font-size: 4rem; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand"><div class="logo-icon">🚆</div>RailMatrix</a>
+    <ul class="navbar-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="pnr.html">PNR Status</a></li>
+      <li><a href="dashboard.html" id="nav-dashboard" class="hidden">My Bookings</a></li>
+    </ul>
+    <div class="navbar-actions">
+      <a href="login.html" class="btn btn-ghost btn-sm" id="nav-login">Log In</a>
+      <a href="register.html" class="btn btn-primary btn-sm" id="nav-register">Sign Up</a>
+      <span id="nav-username" style="font-size:0.88rem;color:var(--text-muted);margin-right:4px;"></span>
+      <button class="btn btn-ghost btn-sm hidden" id="nav-logout">Logout</button>
+    </div>
+  </nav>
+
+  <div class="results-page page-enter">
+    <div class="results-header">
+      <div class="route-display">
+        <span id="from-label">—</span>
+        <span class="route-arrow">→</span>
+        <span id="to-label">—</span>
+      </div>
+      <div style="color:var(--text-muted);font-size:0.9rem;" id="date-label"></div>
+    </div>
+    <div id="alert-box" class="alert" style="margin-bottom:20px;"></div>
+    <div id="loading-state" style="text-align:center;padding:60px 0;">
+      <div class="spinner show" style="width:40px;height:40px;margin:0 auto 16px;border-width:3px;"></div>
+      <p style="color:var(--text-muted);">Searching for trains...</p>
+    </div>
+    <div id="results-container" class="hidden"></div>
+    <div id="no-results" class="no-trains hidden">
+      <div class="icon">🔍</div>
+      <h3 style="font-size:1.4rem;font-weight:700;margin-bottom:8px;">No trains found</h3>
+      <p style="color:var(--text-muted);margin-bottom:24px;">No direct trains available for this route and date.</p>
+      <a href="index.html" class="btn btn-primary">Try another search</a>
+    </div>
+  </div>
+
+  <!-- Booking Modal -->
+  <div class="modal-overlay" id="booking-modal">
+    <div class="modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+        <h2 style="font-size:1.2rem;font-weight:700;">Book Tickets</h2>
+        <button onclick="closeModal()" style="background:none;border:none;color:var(--text-muted);font-size:1.5rem;cursor:pointer;">×</button>
+      </div>
+      <div id="modal-train-info" style="background:var(--surface);border-radius:var(--radius-sm);padding:16px;margin-bottom:20px;"></div>
+      <div id="modal-alert" class="alert" style="margin-bottom:16px;"></div>
+      <div class="field" style="margin-bottom:16px;">
+        <label>Number of Passengers</label>
+        <select id="pax-count" class="input" onchange="updatePassengerForms()">
+          <option value="1">1 Passenger</option><option value="2">2 Passengers</option>
+          <option value="3">3 Passengers</option><option value="4">4 Passengers</option>
+          <option value="5">5 Passengers</option><option value="6">6 Passengers</option>
+        </select>
+      </div>
+      <div id="passenger-forms"></div>
+      <button id="book-btn" class="btn btn-primary w-full" style="margin-top:20px;" onclick="confirmBooking()">Confirm Booking</button>
+      <p style="text-align:center;color:var(--text-muted);font-size:0.78rem;margin-top:12px;">You must be logged in to book.</p>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    updateNavbar();
+    let selectedTrain = null;
+    let searchParams  = null;
+
+    window.addEventListener('load', async () => {
+      const raw = sessionStorage.getItem('rm_search');
+      if (!raw) { window.location.href = 'index.html'; return; }
+      searchParams = JSON.parse(raw);
+      document.getElementById('from-label').textContent  = searchParams.from;
+      document.getElementById('to-label').textContent    = searchParams.to;
+      document.getElementById('date-label').textContent  = formatDate(searchParams.date);
+      try {
+        const data = await TrainsAPI.search(searchParams.from, searchParams.to, searchParams.date);
+        document.getElementById('loading-state').classList.add('hidden');
+        if (!data.trains || data.trains.length === 0) {
+          document.getElementById('no-results').classList.remove('hidden'); return;
+        }
+        document.getElementById('from-label').textContent = data.from;
+        document.getElementById('to-label').textContent   = data.to;
+        const container = document.getElementById('results-container');
+        container.classList.remove('hidden');
+        container.innerHTML = `<p style="color:var(--text-muted);margin-bottom:20px;font-size:0.9rem;">${data.count} train${data.count!==1?'s':''} found</p>`;
+        data.trains.forEach(t => {
+          const card = document.createElement('div');
+          card.className = 'train-card';
+          const seatsOk = t.availableSeats > 0;
+          card.innerHTML = `
+            <div class="train-header">
+              <div><div class="train-name">${t.trainName}</div><div class="train-type">${t.trainType || 'Train'} · ${t.distanceKm} km</div></div>
+              <span class="badge ${seatsOk ? 'badge-active':'badge-cancelled'}">${seatsOk ? t.availableSeats+' seats left':'FULL'}</span>
+            </div>
+            <div class="train-route-row">
+              <div class="train-time-box"><div class="time">${formatTime(t.depTime)}</div><div class="label">${searchParams.from.substring(0,18)}</div></div>
+              <div class="journey-line"><div class="journey-bar"></div><div style="font-size:0.75rem;color:var(--text-muted);">${t.duration || '—'}</div></div>
+              <div class="train-time-box"><div class="time">${formatTime(t.arrTime)}</div><div class="label">${searchParams.to.substring(0,18)}</div></div>
+            </div>
+            <div class="journey-meta">
+              <div class="fare-display">₹${t.fare} <span style="font-size:0.8rem;color:var(--text-muted);font-weight:400;">/ person</span></div>
+              <button class="btn btn-primary btn-sm" ${seatsOk ? '' : 'disabled style="opacity:0.4;"'} onclick='openBooking(${JSON.stringify(t)})'>Book Now →</button>
+            </div>`;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        document.getElementById('loading-state').classList.add('hidden');
+        showAlert('alert-box', err.message);
+      }
+    });
+
+    function openBooking(train) {
+      if (!Auth.isLoggedIn()) { window.location.href = 'login.html'; return; }
+      selectedTrain = train;
+      document.getElementById('modal-train-info').innerHTML = `
+        <div style="font-weight:700;margin-bottom:4px;">${train.trainName}</div>
+        <div style="color:var(--text-muted);font-size:0.85rem;">${searchParams.from} → ${searchParams.to} · ${formatDate(searchParams.date)}</div>
+        <div style="color:var(--accent);font-weight:700;margin-top:8px;">₹${train.fare} per person</div>`;
+      updatePassengerForms();
+      document.getElementById('booking-modal').classList.add('open');
+    }
+
+    function closeModal() { document.getElementById('booking-modal').classList.remove('open'); }
+
+    function updatePassengerForms() {
+      const n = parseInt(document.getElementById('pax-count').value);
+      let html = '';
+      for (let i = 1; i <= n; i++) {
+        html += `<div style="background:var(--surface);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;">
+          <div style="font-weight:600;font-size:0.85rem;margin-bottom:10px;color:var(--text-muted);">PASSENGER ${i}</div>
+          <div class="grid-2" style="gap:10px;">
+            <div class="field"><label>Name</label><input class="input p-name" placeholder="Full name"></div>
+            <div class="field"><label>Age</label><input class="input p-age" type="number" min="1" max="110" placeholder="Age"></div>
+            <div class="field"><label>Gender</label>
+              <select class="input p-gender"><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select>
+            </div>
+          </div></div>`;
+      }
+      document.getElementById('passenger-forms').innerHTML = html;
+    }
+
+    async function confirmBooking() {
+      const names   = [...document.querySelectorAll('.p-name')].map(e => e.value.trim());
+      const ages    = [...document.querySelectorAll('.p-age')].map(e => parseInt(e.value));
+      const genders = [...document.querySelectorAll('.p-gender')].map(e => e.value);
+      if (names.some(n => !n) || ages.some(a => !a || a < 1)) { showAlert('modal-alert','Please fill all passenger details.'); return; }
+      const passengers = names.map((n,i) => ({ name: n, age: ages[i], gender: genders[i] }));
+      setLoading('book-btn', true, 'Booking...');
+      try {
+        const result = await BookingsAPI.create(selectedTrain.trainId, searchParams.date, passengers);
+        closeModal();
+        sessionStorage.setItem('rm_booking_confirm', JSON.stringify(result));
+        window.location.href = 'confirm.html';
+      } catch (err) {
+        showAlert('modal-alert', err.message);
+      } finally {
+        setLoading('book-btn', false, 'Confirm Booking');
+      }
+    }
+  </script>
+</body>
+</html>

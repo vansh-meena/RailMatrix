@@ -89,6 +89,53 @@ public class EmailService {
     }
 
     // ────────────────────────────────────────────────────────────
+    // EMAIL VERIFICATION
+    // ────────────────────────────────────────────────────────────
+    public static void sendVerificationEmail(String toEmail, String userName, String token) {
+        // The verify link points to the Node.js API (update host when deployed)
+        String verifyLink = "http://localhost:3000/api/auth/verify-email?token=" + token;
+        try {
+            Session session = createSession();
+            Message msg = new MimeMessage(session);
+            msg.setFrom(new InternetAddress(FROM_EMAIL, FROM_NAME));
+            msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
+            msg.setSubject("\uD83D\uDE86 Verify your RailMatrix email");
+
+            String body = """
+                <!DOCTYPE html>
+                <html><head><meta charset="UTF-8"><style>
+                    body{font-family:'Helvetica Neue',Arial,sans-serif;background:#f5f0ff;margin:0;padding:20px}
+                    .c{max-width:560px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(72,52,120,.15)}
+                    .h{background:linear-gradient(135deg,#32235a,#483478);padding:28px 32px}
+                    .h h1{color:white;margin:0;font-size:22px}.h p{color:#c8b8e8;margin:4px 0 0;font-size:14px}
+                    .b{padding:28px 32px}
+                    .btn{display:inline-block;background:#483478;color:white;text-decoration:none;
+                         padding:14px 32px;border-radius:10px;font-weight:bold;font-size:15px;margin:20px 0}
+                    .note{color:#888;font-size:12px;margin-top:16px}
+                    .f{background:#f8f4ff;padding:16px 32px;text-align:center;color:#aaa;font-size:12px}
+                </style></head>
+                <body><div class="c">
+                    <div class="h"><h1>\uD83D\uDE86 RailMatrix</h1><p>Verify your email address</p></div>
+                    <div class="b">
+                        <p>Hello <strong>%s</strong>,<br>Thanks for registering! Click below to verify your email.</p>
+                        <a href="%s" class="btn">\u2705 Verify My Email</a>
+                        <p class="note">This link expires in 24 hours. If you didn't register, ignore this email.</p>
+                        <p class="note">Or paste in browser:<br>%s</p>
+                    </div>
+                    <div class="f">© 2026 RailMatrix · Do not reply to this email.</div>
+                </div></body></html>
+                """.formatted(userName, verifyLink, verifyLink);
+
+            msg.setContent(body, "text/html; charset=utf-8");
+            Transport.send(msg);
+            System.out.println("Verification email sent to " + toEmail);
+        } catch (Exception e) {
+            System.err.println("Failed to send verification email: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────
     // BOOKING EMAIL HTML TEMPLATE
     // ────────────────────────────────────────────────────────────
     private static String buildBookingEmailHTML(String userName, int bookingId,

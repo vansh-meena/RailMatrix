@@ -5,14 +5,17 @@ import com.smartrail.util.DBConnection;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URL;
-import java.sql.Connection;
-import java.sql.Date;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserDashboard extends JFrame {
 
@@ -29,7 +32,7 @@ public class UserDashboard extends JFrame {
     private final String userEmail;
 
     private BufferedImage bgImage;
-    private JTextField fromField, toField;
+    private StationAutoCompleteField fromField, toField;
     private DatePickerField dateField;
 
     public UserDashboard(int currentUserId, String userName, String userEmail) {
@@ -76,12 +79,9 @@ public class UserDashboard extends JFrame {
         JPanel navLinks = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 12));
         navLinks.setOpaque(false);
         navLinks.add(navButton("Home", e -> {
-            fromField.setText("e.g. New Delhi Junction");
-            fromField.setForeground(TEXT_GREY);
-            toField.setText("e.g. Mumbai Central");
-            toField.setForeground(TEXT_GREY);
+            fromField.reset();
+            toField.reset();
             dateField.setForeground(TEXT_GREY);
-            fromField.requestFocus();
         }));
         nav.add(navLinks, BorderLayout.CENTER);
 
@@ -221,14 +221,13 @@ public class UserDashboard extends JFrame {
         card.setPreferredSize(new Dimension(820, 120));
         card.setLayout(new FlowLayout(FlowLayout.CENTER, 16, 20));
 
-        // Create fields first
-        fromField = styledSearchField("e.g. New Delhi Junction");
-        toField = styledSearchField("e.g. Mumbai Central");
+        // Use autocomplete fields instead of plain JTextFields
+        fromField = new StationAutoCompleteField("e.g. New Delhi Junction");
+        toField   = new StationAutoCompleteField("e.g. Mumbai Central");
         dateField = new DatePickerField("Select Date");
 
-        // Add labeled columns
         card.add(labeledSearchCol("From", fromField));
-        card.add(labeledSearchCol("To", toField));
+        card.add(labeledSearchCol("To",   toField));
         JPanel dateCol = new JPanel(new BorderLayout(0, 4));
         dateCol.setOpaque(false);
         JLabel dateLbl = new JLabel("Journey Date");
@@ -263,7 +262,6 @@ public class UserDashboard extends JFrame {
         searchBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         searchBtn.addActionListener(e -> handleSearch());
 
-        // Align button with fields
         JPanel btnCol = new JPanel(new BorderLayout());
         btnCol.setOpaque(false);
         JLabel spacer = new JLabel(" ");
@@ -275,45 +273,7 @@ public class UserDashboard extends JFrame {
         return card;
     }
 
-    private JTextField styledSearchField(String placeholder) {
-        JTextField field = new JTextField() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(WHITE);
-                g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 15, 15));
-                g2.setColor(new Color(200, 180, 220));
-                g2.draw(new RoundRectangle2D.Double(0, 0, getWidth() - 1, getHeight() - 1, 15, 15));
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        field.setOpaque(false);
-        field.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
-        field.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
-        field.setForeground(TEXT_GREY);
-        field.setText(placeholder);
-        field.setPreferredSize(new Dimension(200, 38));
-        field.addFocusListener(new FocusAdapter() {
-            public void focusGained(FocusEvent e) {
-                if (field.getText().equals(placeholder)) {
-                    field.setText("");
-                    field.setForeground(Color.BLACK);
-                }
-            }
-
-            public void focusLost(FocusEvent e) {
-                if (field.getText().isEmpty()) {
-                    field.setText(placeholder);
-                    field.setForeground(TEXT_GREY);
-                }
-            }
-        });
-        return field;
-    }
-
-    private JPanel labeledSearchCol(String labelText, JTextField field) {
+    private JPanel labeledSearchCol(String labelText, JComponent field) {
         JPanel col = new JPanel(new BorderLayout(0, 4));
         col.setOpaque(false);
         JLabel lbl = new JLabel(labelText);
@@ -322,6 +282,151 @@ public class UserDashboard extends JFrame {
         col.add(lbl, BorderLayout.NORTH);
         col.add(field, BorderLayout.CENTER);
         return col;
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // STATION AUTOCOMPLETE FIELD
+    // ────────────────────────────────────────────────────────────
+    // Wraps a JTextField with a dropdown popup that shows matching stations
+    // as the user types. Sets validStation flag so handleSearch() can reject
+    // typed text that was never confirmed from the dropdown.
+    private class StationAutoCompleteField extends JPanel {
+        private final JTextField textField;
+        private final JPopupMenu popup;
+        private final String    placeholder;  // stored so reset() can use it
+        private boolean validStation = false; // true only when user picks from dropdown
+        private String  selectedName = "";
+
+        StationAutoCompleteField(String placeholder) {
+            this.placeholder = placeholder;
+            setLayout(new BorderLayout());
+            setOpaque(false);
+            setPreferredSize(new Dimension(200, 38));
+
+            textField = new JTextField() {
+                @Override protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(WHITE);
+                    g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 15, 15));
+                    g2.setColor(new Color(200, 180, 220));
+                    g2.draw(new RoundRectangle2D.Double(0, 0, getWidth()-1, getHeight()-1, 15, 15));
+                    g2.dispose();
+                    super.paintComponent(g);
+                }
+            };
+            textField.setOpaque(false);
+            textField.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
+            textField.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
+            textField.setForeground(TEXT_GREY);
+            textField.setText(placeholder);
+
+            // Placeholder focus behavior
+            textField.addFocusListener(new FocusAdapter() {
+                public void focusGained(FocusEvent e) {
+                    if (textField.getText().equals(placeholder)) {
+                        textField.setText(""); textField.setForeground(Color.BLACK);
+                    }
+                }
+                public void focusLost(FocusEvent e) {
+                    if (textField.getText().isEmpty()) {
+                        textField.setText(placeholder); textField.setForeground(TEXT_GREY);
+                        validStation = false; selectedName = "";
+                    }
+                }
+            });
+
+            popup = new JPopupMenu();
+            popup.setBorder(BorderFactory.createLineBorder(new Color(200, 180, 220)));
+            popup.setBackground(WHITE);
+
+            // Listen to every keystroke and query the DB
+            textField.getDocument().addDocumentListener(new DocumentListener() {
+                public void insertUpdate(DocumentEvent e)  { onTextChanged(); }
+                public void removeUpdate(DocumentEvent e)  { onTextChanged(); }
+                public void changedUpdate(DocumentEvent e) { onTextChanged(); }
+            });
+
+            add(textField, BorderLayout.CENTER);
+        }
+
+        private void onTextChanged() {
+            String typed = textField.getText().trim();
+            validStation = false; // reset every keystroke — must re-select from dropdown
+
+            if (typed.length() < 2) { popup.setVisible(false); return; }
+
+            // Query in background so UI stays responsive
+            new Thread(() -> {
+                List<String> results = fetchStations(typed);
+                SwingUtilities.invokeLater(() -> showSuggestions(results));
+            }).start();
+        }
+
+        private List<String> fetchStations(String query) {
+            List<String> list = new ArrayList<>();
+            try (Connection con = DBConnection.getConnection();
+                 java.sql.PreparedStatement ps = con.prepareStatement(
+                     "SELECT station_name FROM stations " +
+                     "WHERE LOWER(station_name) LIKE LOWER(?) OR LOWER(city) LIKE LOWER(?) " +
+                     "ORDER BY CASE WHEN LOWER(station_name) LIKE LOWER(?) THEN 0 ELSE 1 END, station_name " +
+                     "LIMIT 8")) {
+                ps.setString(1, "%" + query + "%");
+                ps.setString(2, "%" + query + "%");
+                ps.setString(3, query + "%");
+                java.sql.ResultSet rs = ps.executeQuery();
+                while (rs.next()) list.add(rs.getString("station_name"));
+            } catch (Exception e) { e.printStackTrace(); }
+            return list;
+        }
+
+        private void showSuggestions(List<String> stations) {
+            popup.removeAll();
+            if (stations.isEmpty()) { popup.setVisible(false); return; }
+
+            for (String name : stations) {
+                JMenuItem item = new JMenuItem(name);
+                item.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
+                item.setForeground(PRIMARY_DARK);
+                item.setBackground(WHITE);
+                item.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 12));
+                item.addActionListener(e -> {
+                    textField.setText(name);
+                    textField.setForeground(Color.BLACK);
+                    validStation = true;
+                    selectedName = name;
+                    popup.setVisible(false);
+                });
+                item.addMouseListener(new MouseAdapter() {
+                    public void mouseEntered(MouseEvent e) { item.setBackground(new Color(240, 232, 255)); }
+                    public void mouseExited(MouseEvent e)  { item.setBackground(WHITE); }
+                });
+                popup.add(item);
+            }
+
+            if (!popup.isVisible()) {
+                popup.show(textField, 0, textField.getHeight());
+            } else {
+                popup.pack();
+            }
+        }
+
+        /** Returns the validated station name, or null if user didn't pick from dropdown */
+        public String getValidatedStation() {
+            return validStation ? selectedName : null;
+        }
+
+        /** Returns whatever is typed (for pre-fill check) */
+        public String getText() { return textField.getText(); }
+
+        /** Reset the field back to placeholder state */
+        public void reset() {
+            textField.setText(placeholder);
+            textField.setForeground(TEXT_GREY);
+            validStation = false;
+            selectedName = "";
+            popup.setVisible(false);
+        }
     }
 
     // ────────────────────────────────────────────────────────────
@@ -432,28 +537,38 @@ public class UserDashboard extends JFrame {
     // HANDLERS
     // ────────────────────────────────────────────────────────────
     private void handleSearch() {
-        String from = fromField.getText().trim();
-        String to = toField.getText().trim();
         String date = dateField.getSelectedDateSQL();
 
-        if (from.isEmpty() || from.equals("e.g. New Delhi Junction") ||
-                to.isEmpty()   || to.equals("e.g. Mumbai Central")) {
-            if (date == null) {
-                JOptionPane.showMessageDialog(this, "Please select a journey date.", "Missing Info", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            JOptionPane.showMessageDialog(this,
-                    "Please fill all fields.", "Missing Info",
-                    JOptionPane.WARNING_MESSAGE);
+        if (date == null) {
+            JOptionPane.showMessageDialog(this, "Please select a journey date.",
+                    "Missing Info", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        try {
-            Date journeyDate = Date.valueOf(date);
-            new SearchResultGUI(from, to, journeyDate, currentUserId);
-        } catch (IllegalArgumentException ex) {
-            JOptionPane.showMessageDialog(this, "Invalid date. Use YYYY-MM-DD.",
-                    "Date Error", JOptionPane.ERROR_MESSAGE);
+
+        String from = fromField.getValidatedStation();
+        String to   = toField.getValidatedStation();
+
+        if (from == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Please select a valid source station from the suggestions.",
+                    "Invalid Station", JOptionPane.WARNING_MESSAGE);
+            return;
         }
+        if (to == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Please select a valid destination station from the suggestions.",
+                    "Invalid Station", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (from.equalsIgnoreCase(to)) {
+            JOptionPane.showMessageDialog(this,
+                    "Source and destination cannot be the same station.",
+                    "Invalid Route", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        Date journeyDate = Date.valueOf(date);
+        new SearchResultGUI(from, to, journeyDate, currentUserId);
     }
 
     private void scrollToSearch() {

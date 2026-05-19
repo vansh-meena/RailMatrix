@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log In — RailMatrix</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .auth-page { min-height: 100vh; display: grid; place-items: center; padding: 80px 20px; }
+    .auth-card { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 48px; width: 100%; max-width: 440px; backdrop-filter: blur(20px); box-shadow: 0 32px 80px rgba(0,0,0,0.5); animation: fadeUp 0.5s ease; }
+    .auth-logo { text-align: center; margin-bottom: 32px; }
+    .auth-logo .icon { width: 56px; height: 56px; background: linear-gradient(135deg, var(--primary), var(--primary-light)); border-radius: 16px; display: grid; place-items: center; font-size: 28px; margin: 0 auto 12px; }
+    .auth-logo h1 { font-size: 1.5rem; font-weight: 800; }
+    .auth-logo p  { color: var(--text-muted); font-size: 0.88rem; margin-top: 4px; }
+    .form-stack { display: flex; flex-direction: column; gap: 16px; margin-top: 28px; }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand"><div class="logo-icon">🚆</div>RailMatrix</a>
+    <div class="navbar-actions">
+      <a href="register.html" class="btn btn-ghost btn-sm">Create account</a>
+    </div>
+  </nav>
+  <main class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="icon">🚆</div>
+        <h1>Welcome back</h1>
+        <p>Sign in to your RailMatrix account</p>
+      </div>
+      <div id="login-alert" class="alert"></div>
+      <div class="form-stack">
+        <div class="field">
+          <label>Email address</label>
+          <input id="email" class="input" type="email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="password" class="input" type="password" placeholder="Your password" autocomplete="current-password">
+        </div>
+        <button id="login-btn" class="btn btn-primary w-full" style="margin-top:8px;" onclick="doLogin()">Log In</button>
+      </div>
+      <div class="divider">or</div>
+      <p class="text-center" style="font-size:0.88rem;color:var(--text-muted);">
+        Don't have an account? <a href="register.html" style="color:var(--accent);font-weight:600;">Sign up free</a>
+      </p>
+    </div>
+  </main>
+  <script src="js/api.js"></script>
+  <script>
+    // If already logged in, go to dashboard
+    if (Auth.isLoggedIn()) window.location.href = 'dashboard.html';
+    ['email','password'].forEach(id =>
+      document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); })
+    );
+    async function doLogin() {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if (!email || !password) { showAlert('login-alert','Please fill in all fields.'); return; }
+      setLoading('login-btn', true, 'Signing in...');
+      try {
+        const data = await AuthAPI.login(email, password);
+        Auth.save(data.token, data.user);
+        showAlert('login-alert', 'Login successful! Redirecting...', 'success');
+        setTimeout(() => window.location.href = 'dashboard.html', 800);
+      } catch (err) {
+        showAlert('login-alert', err.message);
+      } finally {
+        setLoading('login-btn', false, 'Log In');
+      }
+    }
+  </script>
+</body>
+</html>

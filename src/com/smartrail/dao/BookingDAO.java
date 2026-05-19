@@ -3,6 +3,9 @@ package com.smartrail.dao;
 import com.smartrail.model.Booking;
 
 import java.sql.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Random;
 
 public class BookingDAO {
     private Connection con;
@@ -26,12 +29,16 @@ public class BookingDAO {
 
                 if (available >= seats) {
 
-                    String insertQuery = "INSERT INTO bookings(user_id, train_id, journey_date, total_passengers) VALUES (?, ?, ?, ?)";
+                    // Generate PNR: RM + YY + MM + 6 random digits
+                    String pnr = generatePNR();
+
+                    String insertQuery = "INSERT INTO bookings(pnr, user_id, train_id, journey_date, total_passengers) VALUES (?, ?, ?, ?, ?)";
                     PreparedStatement ps2 = con.prepareStatement(insertQuery, Statement.RETURN_GENERATED_KEYS);
-                    ps2.setInt(1, userId);
-                    ps2.setInt(2, trainId);
-                    ps2.setDate(3, journeyDate);
-                    ps2.setInt(4, seats);
+                    ps2.setString(1, pnr);
+                    ps2.setInt(2, userId);
+                    ps2.setInt(3, trainId);
+                    ps2.setDate(4, journeyDate);
+                    ps2.setInt(5, seats);
                     ps2.executeUpdate();
 
                     ResultSet rs2 = ps2.getGeneratedKeys();
@@ -160,5 +167,15 @@ public class BookingDAO {
         }
 
         return booking;
+    }
+
+    // ── PNR Generator ──────────────────────────────────────────────
+    // Format: RM + YY + MM + 6 random digits  →  e.g. RM260518839201
+    public static String generatePNR() {
+        LocalDateTime now = LocalDateTime.now();
+        String yr   = now.format(DateTimeFormatter.ofPattern("yy"));
+        String mo   = now.format(DateTimeFormatter.ofPattern("MM"));
+        String rand = String.format("%06d", new Random().nextInt(1_000_000));
+        return "RM" + yr + mo + rand;
     }
 }

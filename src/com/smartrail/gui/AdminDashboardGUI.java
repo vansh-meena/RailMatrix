@@ -8,6 +8,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Random;
 
 public class AdminDashboardGUI extends JFrame {
 
@@ -21,8 +24,8 @@ public class AdminDashboardGUI extends JFrame {
     private static final Color GREEN        = new Color(40, 160, 80);
     private static final Color ERROR_RED    = new Color(200, 50, 50);
 
-    private JPanel contentPanel;
-    private JLabel sectionTitle;
+    private JPanel  contentPanel;
+    private JLabel  sectionTitle;   // ← standard JLabel, no custom paint
 
     public AdminDashboardGUI() {
         setTitle("RailMatrix — Admin Dashboard");
@@ -31,28 +34,19 @@ public class AdminDashboardGUI extends JFrame {
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        add(buildNavbar(),   BorderLayout.NORTH);
-        add(buildSidebar(),  BorderLayout.WEST);
+        add(buildNavbar(),  BorderLayout.NORTH);
+        add(buildSidebar(), BorderLayout.WEST);
 
-        // Main content area
+        // ── Main content area ─────────────────────────────────────
         JPanel main = new JPanel(new BorderLayout());
         main.setBackground(BG_LIGHT);
 
-        sectionTitle = new JLabel("") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                        RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING,
-                        RenderingHints.VALUE_RENDER_QUALITY);
-                g2.setColor(PRIMARY_DARK);
-                g2.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
-                g2.drawString(getText(), 24, 38);
-                g2.dispose();
-            }
-        };
-        sectionTitle.setPreferredSize(new Dimension(900, 60));
-        sectionTitle.setBorder(new EmptyBorder(20, 24, 10, 24));
+        // FIX: Use a plain JLabel — no custom paintComponent override
+        sectionTitle = new JLabel("Dashboard Overview");
+        sectionTitle.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
+        sectionTitle.setForeground(PRIMARY_DARK);
+        sectionTitle.setBorder(new EmptyBorder(20, 28, 10, 24));
+        sectionTitle.setPreferredSize(new Dimension(900, 58));
         main.add(sectionTitle, BorderLayout.NORTH);
 
         contentPanel = new JPanel();
@@ -79,24 +73,15 @@ public class AdminDashboardGUI extends JFrame {
         nav.setPreferredSize(new Dimension(getWidth(), 55));
         nav.setBorder(new EmptyBorder(0, 20, 0, 20));
 
-        JLabel logo = new JLabel("") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                        RenderingHints.VALUE_TEXT_ANTIALIAS_LCD_HRGB);
-                g2.setColor(WHITE);
-                g2.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
-                g2.drawString("RailMatrix Admin", 10, 22);
-                g2.dispose();
-            }
-        };
-        logo.setPreferredSize(new Dimension(250, 55));
-        logo.setFont(new Font("Helvetica Neue", Font.BOLD, 20));
+        // FIX: Plain JLabel for navbar title — no drawString override
+        JLabel logo = new JLabel("🚆  RailMatrix Admin");
+        logo.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
         logo.setForeground(WHITE);
+        logo.setPreferredSize(new Dimension(260, 55));
         nav.add(logo, BorderLayout.WEST);
 
         JButton logoutBtn = new JButton("Logout");
-        logoutBtn.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
+        logoutBtn.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
         logoutBtn.setForeground(WHITE);
         logoutBtn.setBackground(new Color(180, 50, 50));
         logoutBtn.setBorder(new EmptyBorder(5, 14, 5, 14));
@@ -119,39 +104,37 @@ public class AdminDashboardGUI extends JFrame {
     // ────────────────────────────────────────────────────────────
     private JPanel buildSidebar() {
         JPanel sidebar = new JPanel();
-        sidebar.putClientProperty(RenderingHints.KEY_TEXT_ANTIALIASING,
-                RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
         sidebar.setBackground(new Color(58, 42, 100));
         sidebar.setPreferredSize(new Dimension(200, getHeight()));
         sidebar.setBorder(new EmptyBorder(16, 0, 16, 0));
 
-        sidebar.add(sidebarBtn("📊  Overview",       e -> showOverview()));
-        sidebar.add(sidebarBtn("🚆  Manage Trains",  e -> showManageTrains()));
-        sidebar.add(sidebarBtn("🚉  Manage Stations",e -> showManageStations()));
-        sidebar.add(sidebarBtn("📋  All Bookings",   e -> showAllBookings()));
-        sidebar.add(sidebarBtn("👥  All Users",      e -> showAllUsers()));
+        sidebar.add(sidebarBtn("📊  Overview",        e -> showOverview()));
+        sidebar.add(sidebarBtn("🚆  Manage Trains",   e -> showManageTrains()));
+        sidebar.add(sidebarBtn("🚉  Manage Stations", e -> showManageStations()));
+        sidebar.add(sidebarBtn("📋  All Bookings",    e -> showAllBookings()));
+        sidebar.add(sidebarBtn("👥  All Users",       e -> showAllUsers()));
         sidebar.add(Box.createVerticalGlue());
-
         return sidebar;
     }
 
     private JButton sidebarBtn(String text, ActionListener action) {
         JButton btn = new JButton(text);
-        btn.setFont(new Font("Helvetica Neue", Font.PLAIN, 14));
+        // FIX: Use Font.SANS_SERIF (always available) instead of "Helvetica Neue"
+        btn.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setBorder(new EmptyBorder(12, 20, 12, 20));
         btn.setBackground(new Color(58, 42, 100));
         btn.setForeground(new Color(210, 200, 235));
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
-        btn.setContentAreaFilled(false);
+        btn.setContentAreaFilled(true);  // let Swing paint bg so hover works
         btn.setMaximumSize(new Dimension(200, 48));
         btn.setPreferredSize(new Dimension(200, 48));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(80, 60, 130)); repaint(); }
-            public void mouseExited(MouseEvent e)  { btn.setBackground(new Color(58, 42, 100)); repaint(); }
+            public void mouseEntered(MouseEvent e) { btn.setBackground(new Color(80, 60, 130)); }
+            public void mouseExited(MouseEvent e)  { btn.setBackground(new Color(58, 42, 100)); }
         });
         btn.addActionListener(action);
         return btn;
@@ -161,9 +144,8 @@ public class AdminDashboardGUI extends JFrame {
     // OVERVIEW
     // ────────────────────────────────────────────────────────────
     private void showOverview() {
-        sectionTitle = makeLabel("Dashboard Overview",
-                new Font("Helvetica Neue", Font.BOLD, 20), PRIMARY_DARK);
-        sectionTitle.setBorder(new EmptyBorder(20, 24, 10, 24));
+        // FIX: just setText() — no reassignment of sectionTitle
+        sectionTitle.setText("Dashboard Overview");
         contentPanel.removeAll();
 
         JPanel grid = new JPanel(new GridLayout(2, 3, 16, 16));
@@ -172,15 +154,13 @@ public class AdminDashboardGUI extends JFrame {
 
         try {
             Connection con = DBConnection.getConnection();
-            grid.add(statCard("Total Trains",    queryCount(con, "SELECT COUNT(*) FROM trains"),        "🚆", new Color(230, 220, 255)));
-            grid.add(statCard("Total Stations",  queryCount(con, "SELECT COUNT(*) FROM stations"),      "🚉", new Color(220, 240, 255)));
-            grid.add(statCard("Total Bookings",  queryCount(con, "SELECT COUNT(*) FROM bookings"),      "🎫", new Color(220, 255, 235)));
-            grid.add(statCard("Total Users",     queryCount(con, "SELECT COUNT(*) FROM users"),         "👥", new Color(255, 240, 220)));
-            grid.add(statCard("Today's Bookings",queryCount(con, "SELECT COUNT(*) FROM bookings WHERE DATE(booking_time) = CURDATE()"), "📅", new Color(255, 230, 230)));
-            grid.add(statCard("Active Routes",   queryCount(con, "SELECT COUNT(*) FROM routes WHERE is_active = 1"), "🗺", new Color(240, 230, 255)));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            grid.add(statCard("Total Trains",     queryCount(con, "SELECT COUNT(*) FROM trains"),         "🚆", new Color(230, 220, 255)));
+            grid.add(statCard("Total Stations",   queryCount(con, "SELECT COUNT(*) FROM stations"),       "🚉", new Color(220, 240, 255)));
+            grid.add(statCard("Total Bookings",   queryCount(con, "SELECT COUNT(*) FROM bookings"),       "🎫", new Color(220, 255, 235)));
+            grid.add(statCard("Total Users",      queryCount(con, "SELECT COUNT(*) FROM users"),          "👥", new Color(255, 240, 220)));
+            grid.add(statCard("Today's Bookings", queryCount(con, "SELECT COUNT(*) FROM bookings WHERE DATE(booking_time) = CURDATE()"), "📅", new Color(255, 230, 230)));
+            grid.add(statCard("Active Routes",    queryCount(con, "SELECT COUNT(*) FROM routes"),         "🗺", new Color(240, 230, 255)));
+        } catch (Exception e) { e.printStackTrace(); }
 
         contentPanel.add(grid, BorderLayout.NORTH);
         refresh();
@@ -203,15 +183,15 @@ public class AdminDashboardGUI extends JFrame {
         card.setPreferredSize(new Dimension(180, 120));
         card.setBorder(new EmptyBorder(12, 16, 12, 16));
 
-        JLabel iconLabel = new JLabel(icon);
-        iconLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 26));
+        JLabel iconLabel  = new JLabel(icon);
+        iconLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 26));
 
         JLabel valueLabel = new JLabel(value);
-        valueLabel.setFont(new Font("Helvetica Neue", Font.BOLD, 28));
+        valueLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 28));
         valueLabel.setForeground(PRIMARY_DARK);
 
         JLabel labelLabel = new JLabel(label);
-        labelLabel.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
+        labelLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
         labelLabel.setForeground(TEXT_GREY);
 
         JPanel textPanel = new JPanel(new GridLayout(3, 1, 0, 2));
@@ -247,8 +227,7 @@ public class AdminDashboardGUI extends JFrame {
         try {
             Connection con = DBConnection.getConnection();
             String query = "SELECT train_id, train_name, train_type, departure, destination, total_seats, base_fare FROM trains ORDER BY train_id";
-            PreparedStatement ps = con.prepareStatement(query);
-            ResultSet rs = ps.executeQuery();
+            ResultSet rs = con.prepareStatement(query).executeQuery();
 
             String[] cols = {"ID", "Train Name", "Type", "From", "To", "Seats", "Base Fare"};
             java.util.List<Object[]> rows = new java.util.ArrayList<>();
@@ -280,6 +259,7 @@ public class AdminDashboardGUI extends JFrame {
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 10));
         top.setOpaque(false);
         top.setBorder(new EmptyBorder(0, 24, 0, 24));
+
         JButton addBtn = actionButton("+ Add Station", PRIMARY);
         addBtn.addActionListener(e -> showAddStationDialog());
         top.add(addBtn);
@@ -291,17 +271,13 @@ public class AdminDashboardGUI extends JFrame {
 
         try {
             Connection con = DBConnection.getConnection();
-            String query = "SELECT station_id, station_name, city FROM stations ORDER BY station_id";
-            PreparedStatement ps = con.prepareStatement(query);
-            ResultSet rs = ps.executeQuery();
+            ResultSet rs = con.prepareStatement(
+                "SELECT station_id, station_name, city FROM stations ORDER BY station_id"
+            ).executeQuery();
             String[] cols = {"ID", "Station Name", "City"};
             java.util.List<Object[]> rows = new java.util.ArrayList<>();
             while (rs.next()) {
-                rows.add(new Object[]{
-                        rs.getInt(1),
-                        rs.getString(2),
-                        rs.getString(3)
-                });
+                rows.add(new Object[]{ rs.getInt(1), rs.getString(2), rs.getString(3) });
             }
             tablePanel.add(buildTable(cols, rows), BorderLayout.CENTER);
         } catch (Exception e) { e.printStackTrace(); }
@@ -324,27 +300,28 @@ public class AdminDashboardGUI extends JFrame {
         try {
             Connection con = DBConnection.getConnection();
             String query = """
-                            SELECT b.booking_id, u.name, t.train_name,
-                                   b.journey_date, b.total_passengers,
-                                   b.booking_time
-                            FROM bookings b
-                            JOIN users u  ON u.user_id  = b.user_id
-                            JOIN trains t ON t.train_id = b.train_id
-                            ORDER BY b.booking_time DESC
-                        """;
-
+                SELECT b.booking_id, b.pnr, u.name, t.train_name,
+                       b.journey_date, b.total_passengers, b.status, b.booking_time
+                FROM bookings b
+                JOIN users u  ON u.user_id  = b.user_id
+                JOIN trains t ON t.train_id = b.train_id
+                ORDER BY b.booking_time DESC
+            """;
             ResultSet rs = con.prepareStatement(query).executeQuery();
-            String[] cols = {"Booking ID", "User", "Train",
-                    "Journey Date", "Passengers", "Booked At"};
+            String[] cols = {"Booking ID", "PNR", "User", "Train", "Journey Date", "Passengers", "Status", "Booked At"};
             java.util.List<Object[]> rows = new java.util.ArrayList<>();
-            while (rs.next()) rows.add(new Object[]{
-                    rs.getInt("booking_id"),
-                    rs.getString("name"),
-                    rs.getString("train_name"),
-                    rs.getDate("journey_date"),
-                    rs.getInt("total_passengers"),
-                    rs.getTimestamp("booking_time").toString().substring(0, 16)
-            });
+            while (rs.next()) {
+                rows.add(new Object[]{
+                        rs.getInt("booking_id"),
+                        rs.getString("pnr"),
+                        rs.getString("name"),
+                        rs.getString("train_name"),
+                        rs.getDate("journey_date"),
+                        rs.getInt("total_passengers"),
+                        rs.getString("status"),
+                        rs.getTimestamp("booking_time").toString().substring(0, 16)
+                });
+            }
             tablePanel.add(buildTable(cols, rows), BorderLayout.CENTER);
         } catch (Exception e) { e.printStackTrace(); }
 
@@ -366,15 +343,18 @@ public class AdminDashboardGUI extends JFrame {
         try {
             Connection con = DBConnection.getConnection();
             ResultSet rs = con.prepareStatement(
-                    "SELECT user_id, name, email FROM users ORDER BY user_id"
+                "SELECT user_id, name, email, is_verified FROM users ORDER BY user_id"
             ).executeQuery();
-            String[] cols = {"User ID", "Name", "Email"};
+            String[] cols = {"User ID", "Name", "Email", "Verified"};
             java.util.List<Object[]> rows = new java.util.ArrayList<>();
-            while (rs.next()) rows.add(new Object[]{
-                    rs.getInt("user_id"),
-                    rs.getString("name"),
-                    rs.getString("email")
-            });
+            while (rs.next()) {
+                rows.add(new Object[]{
+                        rs.getInt("user_id"),
+                        rs.getString("name"),
+                        rs.getString("email"),
+                        rs.getInt("is_verified") == 1 ? "✅ Yes" : "❌ No"
+                });
+            }
             tablePanel.add(buildTable(cols, rows), BorderLayout.CENTER);
         } catch (Exception e) { e.printStackTrace(); }
 
@@ -395,7 +375,7 @@ public class AdminDashboardGUI extends JFrame {
         GridBagConstraints gc = new GridBagConstraints();
         gc.fill = GridBagConstraints.HORIZONTAL;
         gc.insets = new Insets(6, 16, 4, 16);
-        gc.gridx = 0; gc.gridwidth = 2;
+        gc.gridx = 0; gc.gridwidth = 2; gc.gridy = 0;
 
         JTextField nameField  = dialogField("Train Name");
         JTextField typeField  = dialogField("Type (e.g. Express)");
@@ -404,24 +384,25 @@ public class AdminDashboardGUI extends JFrame {
         JTextField seatsField = dialogField("Total Seats");
         JTextField fareField  = dialogField("Base Fare (₹)");
         JLabel statusLbl = new JLabel("", SwingConstants.CENTER);
-        statusLbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
+        statusLbl.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
 
         for (JComponent c : new JComponent[]{
-                label("Train Name"), nameField,
-                label("Train Type"), typeField,
-                label("Departure"),  depField,
-                label("Destination"),destField,
-                label("Total Seats"),seatsField,
-                label("Base Fare"),  fareField,
+                label("Train Name"),  nameField,
+                label("Train Type"),  typeField,
+                label("Departure"),   depField,
+                label("Destination"), destField,
+                label("Total Seats"), seatsField,
+                label("Base Fare"),   fareField,
                 statusLbl
-        }) { dialog.add(c, gc); gc.gridy = (gc.gridy == 0 ? 1 : gc.gridy + 1); }
+        }) { dialog.add(c, gc); gc.gridy++; }
 
         JButton saveBtn = actionButton("Save Train", PRIMARY);
         saveBtn.addActionListener(e -> {
             try {
                 Connection con = DBConnection.getConnection();
-                String q = "INSERT INTO trains(train_name, train_type, departure, destination, total_seats, base_fare, fare_per_km) VALUES(?,?,?,?,?,?,0.50)";
-                PreparedStatement ps = con.prepareStatement(q);
+                PreparedStatement ps = con.prepareStatement(
+                    "INSERT INTO trains(train_name,train_type,departure,destination,total_seats,base_fare,fare_per_km) VALUES(?,?,?,?,?,?,0.50)"
+                );
                 ps.setString(1, nameField.getText().trim());
                 ps.setString(2, typeField.getText().trim());
                 ps.setString(3, depField.getText().trim());
@@ -461,7 +442,7 @@ public class AdminDashboardGUI extends JFrame {
         JTextField nameField = dialogField("Station Name");
         JTextField cityField = dialogField("City");
         JLabel statusLbl = new JLabel("", SwingConstants.CENTER);
-        statusLbl.setFont(new Font("Helvetica Neue", Font.PLAIN, 12));
+        statusLbl.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
 
         for (JComponent c : new JComponent[]{
                 label("Station Name"), nameField,
@@ -473,7 +454,7 @@ public class AdminDashboardGUI extends JFrame {
             try {
                 Connection con = DBConnection.getConnection();
                 PreparedStatement ps = con.prepareStatement(
-                        "INSERT INTO stations(station_name, city) VALUES(?, ?)"
+                    "INSERT INTO stations(station_name, city) VALUES(?, ?)"
                 );
                 ps.setString(1, nameField.getText().trim());
                 ps.setString(2, cityField.getText().trim());
@@ -500,9 +481,9 @@ public class AdminDashboardGUI extends JFrame {
         JTable table = new JTable(data, cols) {
             public boolean isCellEditable(int r, int c) { return false; }
         };
-        table.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
+        table.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
         table.setRowHeight(34);
-        table.getTableHeader().setFont(new Font("Helvetica Neue", Font.BOLD, 13));
+        table.getTableHeader().setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
         table.getTableHeader().setBackground(new Color(230, 220, 255));
         table.getTableHeader().setForeground(PRIMARY_DARK);
         table.setSelectionBackground(new Color(220, 210, 250));
@@ -542,7 +523,7 @@ public class AdminDashboardGUI extends JFrame {
                 g2.dispose();
             }
         };
-        btn.setFont(new Font("Helvetica Neue", Font.BOLD, 13));
+        btn.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
         btn.setPreferredSize(new Dimension(160, 38));
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
@@ -553,8 +534,8 @@ public class AdminDashboardGUI extends JFrame {
 
     private JTextField dialogField(String placeholder) {
         JTextField f = new JTextField();
-        f.setFont(new Font("Helvetica Neue", Font.PLAIN, 13));
-        f.setForeground(new Color(100, 100, 100));
+        f.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
+        f.setForeground(TEXT_GREY);
         f.setText(placeholder);
         f.setBorder(BorderFactory.createCompoundBorder(
                 new RegisterGUI.RoundedBorder(10, new Color(200, 180, 220)),
@@ -563,16 +544,10 @@ public class AdminDashboardGUI extends JFrame {
         f.setPreferredSize(new Dimension(340, 36));
         f.addFocusListener(new FocusAdapter() {
             public void focusGained(FocusEvent e) {
-                if (f.getText().equals(placeholder)) {
-                    f.setText("");
-                    f.setForeground(Color.BLACK);
-                }
+                if (f.getText().equals(placeholder)) { f.setText(""); f.setForeground(Color.BLACK); }
             }
             public void focusLost(FocusEvent e) {
-                if (f.getText().isEmpty()) {
-                    f.setText(placeholder);
-                    f.setForeground(new Color(100, 100, 100));
-                }
+                if (f.getText().isEmpty()) { f.setText(placeholder); f.setForeground(TEXT_GREY); }
             }
         });
         return f;
@@ -580,7 +555,7 @@ public class AdminDashboardGUI extends JFrame {
 
     private JLabel label(String text) {
         JLabel l = new JLabel(text);
-        l.setFont(new Font("Helvetica Neue", Font.BOLD, 12));
+        l.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
         l.setForeground(PRIMARY);
         return l;
     }
@@ -588,22 +563,5 @@ public class AdminDashboardGUI extends JFrame {
     private void refresh() {
         contentPanel.revalidate();
         contentPanel.repaint();
-    }
-
-    private JLabel makeLabel(String text, Font font, Color color) {
-        JLabel l = new JLabel(text) {
-            @Override
-            public void paint(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
-                        RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                        RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                super.paint(g2);
-            }
-        };
-        l.setFont(font);
-        l.setForeground(color);
-        return l;
     }
 }
