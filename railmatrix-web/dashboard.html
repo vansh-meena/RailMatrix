@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Dashboard — RailMatrix</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .dashboard-page { padding: 80px 20px; max-width: 1000px; margin: 0 auto; }
+    .welcome-card { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 40px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(20px); }
+    .welcome-card h1 { font-size: 2.5rem; font-weight: 800; color: white; margin-bottom: 8px; }
+    .welcome-card p { color: var(--text-muted); font-size: 1.1rem; }
+    
+    .bookings-list { display: flex; flex-direction: column; gap: 20px; }
+    .booking-card { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; transition: transform 0.2s, box-shadow 0.2s; }
+    .booking-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.1); }
+    .b-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px; margin-bottom: 16px; }
+    .b-pnr { font-family: monospace; font-size: 1.25rem; font-weight: 700; color: white; }
+    .b-date { color: var(--text-muted); font-size: 0.9rem; }
+    
+    .b-body { display: flex; justify-content: space-between; align-items: center; }
+    .b-train { font-size: 1.5rem; font-weight: 700; color: white; margin-bottom: 4px; }
+    .b-type { font-size: 0.9rem; color: var(--accent); font-weight: 600; text-transform: uppercase; }
+    .b-passengers { color: var(--text-muted); font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
+    
+    .b-actions { display: flex; gap: 12px; }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand"><div class="logo-icon">🚆</div>RailMatrix</a>
+    <div class="nav-links">
+      <a href="index.html">Book Tickets</a>
+      <a href="pnr.html">PNR Status</a>
+      <button class="btn btn-ghost" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <main class="dashboard-page">
+    <div class="welcome-card">
+      <div>
+        <h1 id="user-name">Welcome Back</h1>
+        <p id="user-email">Loading your profile...</p>
+      </div>
+      <div>
+        <a href="index.html" class="btn btn-primary">Book New Ticket</a>
+      </div>
+    </div>
+
+    <div style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="font-size:1.75rem; font-weight:800;">My Bookings</h2>
+    </div>
+
+    <div id="dashboard-alert" class="alert"></div>
+
+    <div id="bookings-container" class="bookings-list">
+      <div style="text-align:center; padding:40px; color:var(--text-muted);">
+        <span class="spinner show"></span> Loading your bookings...
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    if (!Auth.isLoggedIn()) { window.location.href = 'login.html'; }
+    
+    const user = Auth.user();
+    if (user) {
+      document.getElementById('user-name').textContent = `Welcome, ${user.name.split(' ')[0]}`;
+      document.getElementById('user-email').textContent = user.email;
+    }
+
+    async function loadBookings() {
+      const container = document.getElementById('bookings-container');
+      try {
+        const data = await BookingsAPI.getForUser(user.userId);
+        if (!data.bookings || data.bookings.length === 0) {
+          container.innerHTML = `
+            <div style="text-align:center; padding:60px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:var(--radius-lg);">
+              <div style="font-size:3rem; margin-bottom:16px;">🎟️</div>
+              <h3 style="font-size:1.5rem; font-weight:700; color:white; margin-bottom:8px;">No Bookings Yet</h3>
+              <p style="color:var(--text-muted); margin-bottom:24px;">You haven't booked any train tickets yet.</p>
+              <a href="index.html" class="btn btn-primary">Book a Ticket</a>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = data.bookings.map(b => `
+          <div class="booking-card">
+            <div class="b-header">
+              <div>
+                <div class="b-pnr">PNR: ${b.bookingId + 1000000000}</div>
+                <div class="b-date">Booked on ${formatDate(b.bookingTime)}</div>
+              </div>
+              <span class="badge ${b.status === 'ACTIVE' ? 'badge-active' : 'badge-cancelled'}">${b.status}</span>
+            </div>
+            <div class="b-body">
+              <div>
+                <div class="b-train">${b.trainName}</div>
+                <div class="b-type">${b.trainType}</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="b-passengers">👥 ${b.totalPassengers} Passenger${b.totalPassengers>1?'s':''}</div>
+                <div style="font-weight:700; font-size:1.25rem; color:white; margin-top:4px;">₹${b.totalFare || b.refundAmount || '0'}</div>
+              </div>
+            </div>
+            <div style="margin-top:20px; display:flex; justify-content:space-between; align-items:center;">
+              <div style="color:var(--text-muted); font-size:0.9rem;">Journey: <strong style="color:white;">${formatDate(b.journeyDate)}</strong></div>
+              <div class="b-actions">
+                ${b.status === 'ACTIVE' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="cancelBooking(${b.bookingId})">Cancel Ticket</button>` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div style="color:var(--red); text-align:center; padding:40px;">${err.message}</div>`;
+      }
+    }
+
+    async function cancelBooking(id) {
+      if (!confirm('Are you sure you want to cancel this ticket? Cancellation charges will apply.')) return;
+      try {
+        await BookingsAPI.cancel(id);
+        showAlert('dashboard-alert', 'Ticket cancelled successfully.', 'success');
+        loadBookings();
+      } catch (err) {
+        showAlert('dashboard-alert', err.message);
+      }
+    }
+
+    function logout() { Auth.clear(); window.location.href = 'index.html'; }
+
+    window.addEventListener('load', loadBookings);
+  </script>
+</body>
+</html>

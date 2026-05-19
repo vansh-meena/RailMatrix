@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PNR Status — RailMatrix</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .pnr-page { padding: 80px 20px; max-width: 600px; margin: 0 auto; min-height: 80vh; }
+    .pnr-search-box { background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 40px; text-align: center; backdrop-filter: blur(20px); }
+    .pnr-search-box h1 { font-size: 2rem; font-weight: 800; color: white; margin-bottom: 8px; }
+    .pnr-search-box p { color: var(--text-muted); margin-bottom: 24px; }
+    
+    .pnr-result { margin-top: 40px; display: none; animation: fadeUp 0.4s ease; }
+    .pnr-card { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; backdrop-filter: blur(20px); }
+    .pnr-header { background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); padding: 24px; display: flex; justify-content: space-between; align-items: center; }
+    .pnr-number { font-size: 1.5rem; font-family: monospace; font-weight: 800; color: white; letter-spacing: 2px; }
+    
+    .pnr-body { padding: 32px 24px; }
+    .train-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+    .train-name { font-size: 1.75rem; font-weight: 800; color: white; margin-bottom: 4px; }
+    .train-route { color: var(--text-muted); font-weight: 500; }
+    .journey-date { font-size: 1.1rem; color: var(--accent); font-weight: 600; text-align: right; }
+    
+    .passengers-table { width: 100%; border-collapse: collapse; }
+    .passengers-table th { text-align: left; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+    .passengers-table td { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); color: white; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand"><div class="logo-icon">🚆</div>RailMatrix</a>
+    <div class="nav-links">
+      <a href="index.html">Book Tickets</a>
+      <a href="login.html" id="nav-login">Login</a>
+    </div>
+  </nav>
+
+  <main class="pnr-page">
+    <div class="pnr-search-box">
+      <h1>Check PNR Status</h1>
+      <p>Enter your 10 or 12-digit PNR number to get live status.</p>
+      
+      <div id="pnr-alert" class="alert"></div>
+      
+      <div style="display:flex; gap:12px; margin-top:24px;">
+        <input type="text" id="pnr-input" class="input" placeholder="e.g. RM260518839201" style="flex:1; text-align:center; font-family:monospace; font-size:1.1rem; letter-spacing:1px; text-transform:uppercase;">
+        <button id="pnr-btn" class="btn btn-primary" onclick="checkPNR()">Check Status</button>
+      </div>
+    </div>
+
+    <div id="pnr-result" class="pnr-result">
+      <div class="pnr-card">
+        <div class="pnr-header">
+          <div>
+            <div style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; font-weight:600; margin-bottom:4px;">PNR Number</div>
+            <div class="pnr-number" id="res-pnr">RM---</div>
+          </div>
+          <span id="res-status" class="badge">--</span>
+        </div>
+        <div class="pnr-body">
+          <div class="train-info">
+            <div>
+              <div class="train-name" id="res-train">--</div>
+              <div class="train-route" id="res-route">-- to --</div>
+            </div>
+            <div>
+              <div style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Date of Journey</div>
+              <div class="journey-date" id="res-date">--</div>
+            </div>
+          </div>
+          
+          <h3 style="font-size:1.1rem; font-weight:700; color:white; margin-bottom:16px;">Passenger Details</h3>
+          <table class="passengers-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Passenger</th>
+                <th>Status</th>
+                <th>Seat/Berth</th>
+              </tr>
+            </thead>
+            <tbody id="res-passengers">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    if (Auth.isLoggedIn()) {
+      document.getElementById('nav-login').textContent = 'Dashboard';
+      document.getElementById('nav-login').href = 'dashboard.html';
+    }
+
+    document.getElementById('pnr-input').addEventListener('keydown', e => { if(e.key==='Enter') checkPNR(); });
+
+    // Auto-check if PNR is in URL (e.g. ?pnr=RM...)
+    window.addEventListener('load', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const pnr = urlParams.get('pnr');
+      if (pnr) {
+        document.getElementById('pnr-input').value = pnr;
+        checkPNR();
+      }
+    });
+
+    async function checkPNR() {
+      const pnr = document.getElementById('pnr-input').value.trim().toUpperCase();
+      if (!pnr) { showAlert('pnr-alert', 'Please enter a PNR number.'); return; }
+      
+      setLoading('pnr-btn', true, 'Checking...');
+      document.getElementById('pnr-result').style.display = 'none';
+
+      try {
+        const data = await BookingsAPI.getByPNR(pnr);
+        
+        document.getElementById('res-pnr').textContent = data.pnr;
+        document.getElementById('res-train').textContent = data.trainName;
+        document.getElementById('res-route').textContent = `${data.departure} → ${data.destination}`;
+        document.getElementById('res-date').textContent = formatDate(data.journeyDate);
+        
+        const badge = document.getElementById('res-status');
+        badge.textContent = data.status;
+        badge.className = `badge ${data.status === 'ACTIVE' ? 'badge-active' : 'badge-cancelled'}`;
+
+        const tb = document.getElementById('res-passengers');
+        tb.innerHTML = data.passengers.map((p, i) => `
+          <tr>
+            <td style="color:var(--text-muted);">${i+1}</td>
+            <td>
+              <div style="font-weight:600;">${p.passenger_name}</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">${p.age} yrs, ${p.gender}</div>
+            </td>
+            <td>
+              <span class="badge ${p.status === 'CNF' ? 'badge-active' : p.status === 'WL' ? 'badge-wl' : 'badge-cancelled'}" style="padding:4px 8px; font-size:0.75rem;">
+                ${p.status}
+              </span>
+            </td>
+            <td>
+              <div style="font-family:monospace; font-weight:600; font-size:1.1rem; color:${p.status==='CNF'?'white':'var(--text-muted)'};">
+                ${p.status === 'CNF' ? p.seat_number : (p.status === 'WL' ? `WL ${p.wl_position}` : '-')}
+              </div>
+            </td>
+          </tr>
+        `).join('');
+
+        document.getElementById('pnr-result').style.display = 'block';
+        
+      } catch (err) {
+        showAlert('pnr-alert', err.message);
+      } finally {
+        setLoading('pnr-btn', false, 'Check Status');
+      }
+    }
+  </script>
+</body>
+</html>
