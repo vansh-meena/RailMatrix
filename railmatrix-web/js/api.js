@@ -15,10 +15,34 @@ const Auth = {
   isLoggedIn() { return !!this.token(); }
 };
 
+const AdminAuth = {
+  save(token, user) {
+    sessionStorage.setItem('rm_admin_token', token);
+    sessionStorage.setItem('rm_admin_user', JSON.stringify(user));
+  },
+  token()  { return sessionStorage.getItem('rm_admin_token'); },
+  user()   { const u = sessionStorage.getItem('rm_admin_user'); return u ? JSON.parse(u) : null; },
+  clear()  { sessionStorage.removeItem('rm_admin_token'); sessionStorage.removeItem('rm_admin_user'); },
+  isLoggedIn() { return !!this.token(); }
+};
+
 // ── Base fetch ──────────────────────────────────────────────────
 async function apiFetch(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...opts.headers };
   const token = Auth.token();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json().catch(() => ({ error: 'Invalid response from server.' }));
+
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// ── Admin Base fetch ────────────────────────────────────────────
+async function adminFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...opts.headers };
+  const token = AdminAuth.token();
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${API}${path}`, { ...opts, headers });
@@ -42,6 +66,20 @@ const AuthAPI = {
       body: JSON.stringify({ email, password })
     });
   }
+};
+
+const AdminAPI = {
+  async login(email, password) {
+    return adminFetch('/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+  },
+  async getStats() { return adminFetch('/admin/stats'); },
+  async getUsers() { return adminFetch('/admin/users'); },
+  async getTrains() { return adminFetch('/admin/trains'); },
+  async getBookings() { return adminFetch('/admin/bookings'); },
+  async getStations() { return adminFetch('/stations/suggest?q='); }
 };
 
 // ── Stations ────────────────────────────────────────────────────
@@ -79,6 +117,9 @@ const BookingsAPI = {
       method: 'POST',
       body: JSON.stringify({ bookingId })
     });
+  },
+  async getByPNR(pnr) {
+    return apiFetch(`/bookings/pnr/${pnr}`);
   }
 };
 
