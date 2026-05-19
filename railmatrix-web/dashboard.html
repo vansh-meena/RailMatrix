@@ -1,137 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User Dashboard — RailMatrix</title>
-  <link rel="stylesheet" href="css/style.css">
-  <style>
-    .dashboard-page { padding: 80px 20px; max-width: 1000px; margin: 0 auto; }
-    .welcome-card { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 40px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(20px); }
-    .welcome-card h1 { font-size: 2.5rem; font-weight: 800; color: white; margin-bottom: 8px; }
-    .welcome-card p { color: var(--text-muted); font-size: 1.1rem; }
-    
-    .bookings-list { display: flex; flex-direction: column; gap: 20px; }
-    .booking-card { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; transition: transform 0.2s, box-shadow 0.2s; }
-    .booking-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.1); }
-    .b-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px; margin-bottom: 16px; }
-    .b-pnr { font-family: monospace; font-size: 1.25rem; font-weight: 700; color: white; }
-    .b-date { color: var(--text-muted); font-size: 0.9rem; }
-    
-    .b-body { display: flex; justify-content: space-between; align-items: center; }
-    .b-train { font-size: 1.5rem; font-weight: 700; color: white; margin-bottom: 4px; }
-    .b-type { font-size: 0.9rem; color: var(--accent); font-weight: 600; text-transform: uppercase; }
-    .b-passengers { color: var(--text-muted); font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
-    
-    .b-actions { display: flex; gap: 12px; }
-  </style>
-</head>
-<body>
-  <div class="bg-mesh"></div>
-  <nav class="navbar">
-    <a href="index.html" class="navbar-brand"><div class="logo-icon">🚆</div>RailMatrix</a>
-    <div class="nav-links">
-      <a href="index.html">Book Tickets</a>
-      <a href="pnr.html">PNR Status</a>
-      <button class="btn btn-ghost" onclick="logout()">Logout</button>
-    </div>
-  </nav>
-
-  <main class="dashboard-page">
-    <div class="welcome-card">
-      <div>
-        <h1 id="user-name">Welcome Back</h1>
-        <p id="user-email">Loading your profile...</p>
-      </div>
-      <div>
-        <a href="index.html" class="btn btn-primary">Book New Ticket</a>
-      </div>
-    </div>
-
-    <div style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
-      <h2 style="font-size:1.75rem; font-weight:800;">My Bookings</h2>
-    </div>
-
-    <div id="dashboard-alert" class="alert"></div>
-
-    <div id="bookings-container" class="bookings-list">
-      <div style="text-align:center; padding:40px; color:var(--text-muted);">
-        <span class="spinner show"></span> Loading your bookings...
-      </div>
-    </div>
-  </main>
-
-  <script src="js/api.js"></script>
-  <script>
-    if (!Auth.isLoggedIn()) { window.location.href = 'login.html'; }
-    
-    const user = Auth.user();
-    if (user) {
-      document.getElementById('user-name').textContent = `Welcome, ${user.name.split(' ')[0]}`;
-      document.getElementById('user-email').textContent = user.email;
-    }
-
-    async function loadBookings() {
-      const container = document.getElementById('bookings-container');
-      try {
-        const data = await BookingsAPI.getForUser(user.userId);
-        if (!data.bookings || data.bookings.length === 0) {
-          container.innerHTML = `
-            <div style="text-align:center; padding:60px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:var(--radius-lg);">
-              <div style="font-size:3rem; margin-bottom:16px;">🎟️</div>
-              <h3 style="font-size:1.5rem; font-weight:700; color:white; margin-bottom:8px;">No Bookings Yet</h3>
-              <p style="color:var(--text-muted); margin-bottom:24px;">You haven't booked any train tickets yet.</p>
-              <a href="index.html" class="btn btn-primary">Book a Ticket</a>
-            </div>
-          `;
-          return;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Bookings — RailMatrix</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .dashboard-page {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 60px 40px;
         }
 
-        container.innerHTML = data.bookings.map(b => `
-          <div class="booking-card">
+        .dash-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+        }
+
+        .dash-title {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .dash-sub {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-top: 4px;
+        }
+
+        .booking-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .b-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            transition: all var(--transition);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .b-card:hover {
+            border-color: rgba(167, 139, 250, 0.3);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .b-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .b-train {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .b-id {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-family: monospace;
+            letter-spacing: 1px;
+        }
+
+        .b-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            border-radius: var(--radius-sm);
+        }
+
+        .b-item .lbl {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .b-item .val {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .b-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            border: 1px dashed var(--border);
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-mesh"></div>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <div class="logo-icon">🚆</div>RailMatrix
+        </a>
+        <ul class="navbar-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="pnr.html">PNR Status</a></li>
+            <li><a href="dashboard.html" id="nav-dashboard" class="active">My Bookings</a></li>
+        </ul>
+        <div class="navbar-actions">
+            <span id="nav-username" style="font-size:0.88rem;color:var(--text-muted);margin-right:4px;"></span>
+            <button class="btn btn-ghost btn-sm" id="nav-logout">Logout</button>
+        </div>
+    </nav>
+    <main class="dashboard-page page-enter">
+        <div class="dash-header">
+            <div>
+                <h1 class="dash-title">My Bookings</h1>
+                <p class="dash-sub" id="welcome-msg">Loading...</p>
+            </div>
+            <a href="index.html" class="btn btn-primary">Book New Ticket</a>
+        </div>
+        <div id="dash-alert" class="alert mb-24"></div>
+        <div id="loading-state" style="text-align:center;padding:60px 0;">
+            <div class="spinner show" style="width:40px;height:40px;margin:0 auto 16px;border-width:3px;"></div>
+            <p style="color:var(--text-muted);">Fetching your bookings...</p>
+        </div>
+        <div id="booking-list" class="booking-list hidden"></div>
+        <div id="empty-state" class="empty-state hidden">
+            <div class="icon">🎫</div>
+            <h3 style="font-size:1.4rem;font-weight:700;margin-bottom:8px;">No bookings yet</h3>
+            <p style="color:var(--text-muted);margin-bottom:24px;">You haven't booked any train tickets with us.</p>
+            <a href="index.html" class="btn btn-primary">Search Trains</a>
+        </div>
+    </main>
+    <!-- Cancel Modal -->
+    <div class="modal-overlay" id="cancel-modal">
+        <div class="modal">
+            <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:12px;color:var(--red);">Cancel Booking</h2>
+            <p style="color:var(--text-muted);font-size:0.95rem;margin-bottom:20px;">Are you sure you want to cancel
+                this booking? This action cannot be undone.</p>
+            <div id="cancel-alert" class="alert mb-24"></div>
+            <div
+                style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);padding:16px;border-radius:var(--radius-sm);margin-bottom:24px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                    <span style="color:var(--text-dim);font-size:0.85rem;">Booking ID</span>
+                    <span id="c-bid" style="font-weight:700;color:var(--text);"></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                    <span style="color:var(--text-dim);font-size:0.85rem;">Estimated Refund</span>
+                    <span id="c-refund" style="font-weight:700;color:var(--green);"></span>
+                </div>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <button class="btn btn-ghost" style="flex:1;" onclick="closeCancelModal()">Keep Ticket</button>
+                <button id="confirm-cancel-btn" class="btn btn-danger" style="flex:1;" onclick="doCancel()">Yes,
+                    Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script src="js/api.js"></script>
+    <script>
+        if (!requireAuth()) { throw new Error('Not logged in'); }
+        updateNavbar();
+        const user = Auth.user();
+        document.getElementById('welcome-msg').textContent = `Welcome back, ${user.name.split(' ')[0]}`;
+        let currentBookings = [];
+        let cancelTargetId = null;
+        window.addEventListener('load', loadBookings);
+        async function loadBookings() {
+            try {
+                const data = await BookingsAPI.getForUser(user.userId);
+                document.getElementById('loading-state').classList.add('hidden');
+
+                const listDiv = document.getElementById('booking-list');
+                const emptyDiv = document.getElementById('empty-state');
+                if (!data.bookings || data.bookings.length === 0) {
+                    emptyDiv.classList.remove('hidden');
+                    return;
+                }
+                currentBookings = data.bookings;
+                listDiv.innerHTML = '';
+
+                data.bookings.forEach(b => {
+                    const isActive = b.status === 'ACTIVE';
+                    const isPast = new Date(b.journeyDate) < new Date();
+
+                    let actionBtn = '';
+                    if (isActive && !isPast) {
+                        // Need to calculate estimated refund based on days left
+                        const daysLeft = Math.floor((new Date(b.journeyDate) - new Date()) / (1000 * 60 * 60 * 24));
+                        let pct = 0;
+                        if (daysLeft > 7) pct = 0.90;
+                        else if (daysLeft > 3) pct = 0.50;
+                        else if (daysLeft > 1) pct = 0.25;
+                        const estRefund = Math.round(b.totalFare * pct);
+                        actionBtn = `<button class="btn btn-danger btn-sm" onclick="openCancelModal(${b.bookingId}, ${estRefund})">Cancel Ticket</button>`;
+                    } else if (!isActive) {
+                        actionBtn = `<span style="font-size:0.85rem;color:var(--red);">Refunded: ₹${b.refundAmount}</span>`;
+                    }
+                    const card = document.createElement('div');
+                    card.className = 'b-card';
+                    card.innerHTML = `
             <div class="b-header">
               <div>
-                <div class="b-pnr">PNR: ${b.bookingId + 1000000000}</div>
-                <div class="b-date">Booked on ${formatDate(b.bookingTime)}</div>
-              </div>
-              <span class="badge ${b.status === 'ACTIVE' ? 'badge-active' : 'badge-cancelled'}">${b.status}</span>
-            </div>
-            <div class="b-body">
-              <div>
-                <div class="b-train">${b.trainName}</div>
-                <div class="b-type">${b.trainType}</div>
+                <div class="b-train">${b.trainName} <span class="badge ${isActive ? 'badge-active' : 'badge-cancelled'}" style="margin-left:8px;">${b.status}</span></div>
+                <div class="b-id">Booking ID: #${b.bookingId}</div>
               </div>
               <div style="text-align:right;">
-                <div class="b-passengers">👥 ${b.totalPassengers} Passenger${b.totalPassengers>1?'s':''}</div>
-                <div style="font-weight:700; font-size:1.25rem; color:white; margin-top:4px;">₹${b.totalFare || b.refundAmount || '0'}</div>
+                <div style="font-size:1.4rem;font-weight:800;color:var(--accent);">₹${b.totalFare}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">Total Paid</div>
               </div>
             </div>
-            <div style="margin-top:20px; display:flex; justify-content:space-between; align-items:center;">
-              <div style="color:var(--text-muted); font-size:0.9rem;">Journey: <strong style="color:white;">${formatDate(b.journeyDate)}</strong></div>
-              <div class="b-actions">
-                ${b.status === 'ACTIVE' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="cancelBooking(${b.bookingId})">Cancel Ticket</button>` : ''}
-              </div>
+            <div class="b-grid">
+              <div class="b-item"><div class="lbl">Journey Date</div><div class="val">${formatDate(b.journeyDate)}</div></div>
+              <div class="b-item"><div class="lbl">Passengers</div><div class="val">${b.totalPassengers}</div></div>
+              <div class="b-item"><div class="lbl">Class / Quota</div><div class="val">${b.classCode} (${b.quotaCode})</div></div>
+              <div class="b-item"><div class="lbl">Booked On</div><div class="val">${formatDate(b.bookingTime)}</div></div>
             </div>
-          </div>
-        `).join('');
-      } catch (err) {
-        container.innerHTML = `<div style="color:var(--red); text-align:center; padding:40px;">${err.message}</div>`;
-      }
-    }
+            <div class="b-footer">
+              <a href="#" style="color:var(--primary-light);font-size:0.85rem;font-weight:600;" onclick="viewDetails(${b.bookingId}); return false;">View Full Details →</a>
+              <div>${actionBtn}</div>
+            </div>
+          `;
+                    listDiv.appendChild(card);
+                });
 
-    async function cancelBooking(id) {
-      if (!confirm('Are you sure you want to cancel this ticket? Cancellation charges will apply.')) return;
-      try {
-        await BookingsAPI.cancel(id);
-        showAlert('dashboard-alert', 'Ticket cancelled successfully.', 'success');
-        loadBookings();
-      } catch (err) {
-        showAlert('dashboard-alert', err.message);
-      }
-    }
-
-    function logout() { Auth.clear(); window.location.href = 'index.html'; }
-
-    window.addEventListener('load', loadBookings);
-  </script>
+                listDiv.classList.remove('hidden');
+            } catch (err) {
+                document.getElementById('loading-state').classList.add('hidden');
+                showAlert('dash-alert', 'Failed to load bookings. ' + err.message);
+            }
+        }
+        function openCancelModal(bookingId, estRefund) {
+            cancelTargetId = bookingId;
+            document.getElementById('c-bid').textContent = `#${bookingId}`;
+            document.getElementById('c-refund').textContent = `₹${estRefund}`;
+            document.getElementById('cancel-alert').classList.remove('show');
+            document.getElementById('cancel-modal').classList.add('open');
+        }
+        function closeCancelModal() {
+            document.getElementById('cancel-modal').classList.remove('open');
+            cancelTargetId = null;
+        }
+        async function doCancel() {
+            if (!cancelTargetId) return;
+            setLoading('confirm-cancel-btn', true, 'Cancelling...');
+            try {
+                const res = await BookingsAPI.cancel(cancelTargetId);
+                closeCancelModal();
+                showAlert('dash-alert', `Ticket cancelled successfully. Refund: ₹${res.refundAmount}`, 'success');
+                // Reload list
+                document.getElementById('booking-list').classList.add('hidden');
+                document.getElementById('loading-state').classList.remove('hidden');
+                setTimeout(loadBookings, 1000);
+            } catch (err) {
+                showAlert('cancel-alert', err.message);
+            } finally {
+                setLoading('confirm-cancel-btn', false, 'Yes, Cancel');
+            }
+        }
+        function viewDetails(id) {
+            const b = currentBookings.find(x => x.bookingId === id);
+            if (b && b.pnr) {
+                window.location.href = `pnr.html?pnr=${b.pnr}`;
+            } else {
+                alert('PNR not found for this booking.');
+            }
+        }
+    </script>
 </body>
+
 </html>

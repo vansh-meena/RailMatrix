@@ -1,160 +1,306 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PNR Status — RailMatrix</title>
-  <link rel="stylesheet" href="css/style.css">
-  <style>
-    .pnr-page { padding: 80px 20px; max-width: 600px; margin: 0 auto; min-height: 80vh; }
-    .pnr-search-box { background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 40px; text-align: center; backdrop-filter: blur(20px); }
-    .pnr-search-box h1 { font-size: 2rem; font-weight: 800; color: white; margin-bottom: 8px; }
-    .pnr-search-box p { color: var(--text-muted); margin-bottom: 24px; }
-    
-    .pnr-result { margin-top: 40px; display: none; animation: fadeUp 0.4s ease; }
-    .pnr-card { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; backdrop-filter: blur(20px); }
-    .pnr-header { background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); padding: 24px; display: flex; justify-content: space-between; align-items: center; }
-    .pnr-number { font-size: 1.5rem; font-family: monospace; font-weight: 800; color: white; letter-spacing: 2px; }
-    
-    .pnr-body { padding: 32px 24px; }
-    .train-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
-    .train-name { font-size: 1.75rem; font-weight: 800; color: white; margin-bottom: 4px; }
-    .train-route { color: var(--text-muted); font-weight: 500; }
-    .journey-date { font-size: 1.1rem; color: var(--accent); font-weight: 600; text-align: right; }
-    
-    .passengers-table { width: 100%; border-collapse: collapse; }
-    .passengers-table th { text-align: left; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
-    .passengers-table td { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); color: white; font-weight: 500; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNR Status — RailMatrix</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .pnr-page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 100px 20px;
+        }
+
+        .pnr-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 48px;
+            width: 100%;
+            max-width: 560px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+            animation: fadeUp 0.5s ease;
+        }
+
+        .pnr-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .pnr-header .icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            font-size: 28px;
+            margin: 0 auto 12px;
+        }
+
+        .pnr-header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+
+        .pnr-header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .search-row .input {
+            flex: 1;
+            font-size: 1.1rem;
+            padding: 16px;
+            text-transform: uppercase;
+        }
+
+        #pnr-result {
+            margin-top: 32px;
+            display: none;
+            animation: fadeUp 0.4s ease;
+        }
+
+        .result-box {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .res-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .res-pnr {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .res-route {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .res-station {
+            flex: 1;
+        }
+
+        .res-station-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .res-station-time {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .res-line {
+            flex: 0 0 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .res-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 16px;
+            border-radius: var(--radius-sm);
+        }
+
+        .meta-item .lbl {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .meta-item .val {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .pax-list {
+            margin-top: 16px;
+        }
+
+        .pax-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px dashed var(--border);
+            font-size: 0.9rem;
+        }
+
+        .pax-item:last-child {
+            border-bottom: none;
+        }
+    </style>
 </head>
+
 <body>
-  <div class="bg-mesh"></div>
-  <nav class="navbar">
-    <a href="index.html" class="navbar-brand"><div class="logo-icon">🚆</div>RailMatrix</a>
-    <div class="nav-links">
-      <a href="index.html">Book Tickets</a>
-      <a href="login.html" id="nav-login">Login</a>
-    </div>
-  </nav>
-
-  <main class="pnr-page">
-    <div class="pnr-search-box">
-      <h1>Check PNR Status</h1>
-      <p>Enter your 10 or 12-digit PNR number to get live status.</p>
-      
-      <div id="pnr-alert" class="alert"></div>
-      
-      <div style="display:flex; gap:12px; margin-top:24px;">
-        <input type="text" id="pnr-input" class="input" placeholder="e.g. RM260518839201" style="flex:1; text-align:center; font-family:monospace; font-size:1.1rem; letter-spacing:1px; text-transform:uppercase;">
-        <button id="pnr-btn" class="btn btn-primary" onclick="checkPNR()">Check Status</button>
-      </div>
-    </div>
-
-    <div id="pnr-result" class="pnr-result">
-      <div class="pnr-card">
-        <div class="pnr-header">
-          <div>
-            <div style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; font-weight:600; margin-bottom:4px;">PNR Number</div>
-            <div class="pnr-number" id="res-pnr">RM---</div>
-          </div>
-          <span id="res-status" class="badge">--</span>
+    <div class="bg-mesh"></div>
+    <nav class="navbar">
+        <a href="index.html" class="navbar-brand">
+            <div class="logo-icon">🚆</div>RailMatrix
+        </a>
+        <ul class="navbar-links">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="pnr.html" class="active">PNR Status</a></li>
+            <li><a href="dashboard.html" id="nav-dashboard" class="hidden">My Bookings</a></li>
+        </ul>
+        <div class="navbar-actions">
+            <a href="login.html" class="btn btn-ghost btn-sm" id="nav-login">Log In</a>
+            <a href="register.html" class="btn btn-primary btn-sm" id="nav-register">Sign Up</a>
+            <span id="nav-username" style="font-size:0.88rem;color:var(--text-muted);margin-right:4px;"></span>
+            <button class="btn btn-ghost btn-sm hidden" id="nav-logout">Logout</button>
         </div>
-        <div class="pnr-body">
-          <div class="train-info">
-            <div>
-              <div class="train-name" id="res-train">--</div>
-              <div class="train-route" id="res-route">-- to --</div>
+    </nav>
+    <main class="pnr-page">
+        <div class="pnr-card">
+            <div class="pnr-header">
+                <div class="icon">🔍</div>
+                <h1>Check PNR Status</h1>
+                <p>Enter your 12-character PNR number to get live booking details.</p>
             </div>
-            <div>
-              <div style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Date of Journey</div>
-              <div class="journey-date" id="res-date">--</div>
+
+            <div id="pnr-alert" class="alert mb-24"></div>
+
+            <div class="search-row">
+                <input id="pnr-input" class="input" type="text" placeholder="e.g. RM2605748185" maxlength="12">
+                <button id="pnr-btn" class="btn btn-primary" onclick="checkPNR()">Check Status</button>
             </div>
-          </div>
-          
-          <h3 style="font-size:1.1rem; font-weight:700; color:white; margin-bottom:16px;">Passenger Details</h3>
-          <table class="passengers-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Passenger</th>
-                <th>Status</th>
-                <th>Seat/Berth</th>
-              </tr>
-            </thead>
-            <tbody id="res-passengers">
-            </tbody>
-          </table>
+            <div id="pnr-result">
+                <div class="result-box">
+                    <div class="res-header">
+                        <div class="res-pnr" id="r-pnr"></div>
+                        <div id="r-status" class="badge"></div>
+                    </div>
+                    <div class="res-route">
+                        <div class="res-station">
+                            <div class="res-station-name" id="r-dep"></div>
+                        </div>
+                        <div class="res-line">→</div>
+                        <div class="res-station" style="text-align:right;">
+                            <div class="res-station-name" id="r-arr"></div>
+                        </div>
+                    </div>
+                    <div class="res-meta">
+                        <div class="meta-item">
+                            <div class="lbl">Train</div>
+                            <div class="val" id="r-train"></div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="lbl">Journey Date</div>
+                            <div class="val" id="r-date"></div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="lbl">Booking Time</div>
+                            <div class="val" id="r-time"></div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="lbl">Class / Quota</div>
+                            <div class="val" id="r-class"></div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="lbl">Passengers</div>
+                            <div class="val" id="r-pax-count"></div>
+                        </div>
+                    </div>
+                    <div style="font-size:0.85rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">PASSENGER
+                        DETAILS</div>
+                    <div class="pax-list" id="r-pax-list"></div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  </main>
+    </main>
+    <script src="js/api.js"></script>
+    <script>
+        updateNavbar();
+        document.getElementById('pnr-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') checkPNR();
+        });
+        window.addEventListener('load', () => {
+            const params = new URLSearchParams(window.location.search);
+            const pnrQuery = params.get('pnr');
+            if (pnrQuery) {
+                document.getElementById('pnr-input').value = pnrQuery;
+                checkPNR();
+            }
+        });
+        async function checkPNR() {
+            const pnr = document.getElementById('pnr-input').value.trim().toUpperCase();
+            const resDiv = document.getElementById('pnr-result');
 
-  <script src="js/api.js"></script>
-  <script>
-    if (Auth.isLoggedIn()) {
-      document.getElementById('nav-login').textContent = 'Dashboard';
-      document.getElementById('nav-login').href = 'dashboard.html';
-    }
+            if (!pnr) { showAlert('pnr-alert', 'Please enter a valid PNR number.'); return; }
+            if (pnr.length !== 12 || !pnr.startsWith('RM')) { showAlert('pnr-alert', 'Invalid PNR format. It should be 12 characters starting with RM.'); return; }
+            setLoading('pnr-btn', true, 'Checking...');
+            resDiv.style.display = 'none';
+            try {
+                const data = await BookingsAPI.getByPNR(pnr);
 
-    document.getElementById('pnr-input').addEventListener('keydown', e => { if(e.key==='Enter') checkPNR(); });
+                document.getElementById('r-pnr').textContent = data.pnr;
+                const statusEl = document.getElementById('r-status');
+                statusEl.textContent = data.status;
+                statusEl.className = `badge ${data.status === 'ACTIVE' ? 'badge-active' : 'badge-cancelled'}`;
 
-    // Auto-check if PNR is in URL (e.g. ?pnr=RM...)
-    window.addEventListener('load', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const pnr = urlParams.get('pnr');
-      if (pnr) {
-        document.getElementById('pnr-input').value = pnr;
-        checkPNR();
-      }
-    });
+                document.getElementById('r-dep').textContent = data.departure;
+                document.getElementById('r-arr').textContent = data.destination;
 
-    async function checkPNR() {
-      const pnr = document.getElementById('pnr-input').value.trim().toUpperCase();
-      if (!pnr) { showAlert('pnr-alert', 'Please enter a PNR number.'); return; }
-      
-      setLoading('pnr-btn', true, 'Checking...');
-      document.getElementById('pnr-result').style.display = 'none';
+                document.getElementById('r-train').textContent = data.trainName;
+                document.getElementById('r-date').textContent = formatDate(data.journeyDate);
+                document.getElementById('r-time').textContent = new Date(data.bookingTime).toLocaleString();
+                document.getElementById('r-class').textContent = `${data.classCode} (${data.quotaCode})`;
+                document.getElementById('r-pax-count').textContent = data.totalPassengers;
 
-      try {
-        const data = await BookingsAPI.getByPNR(pnr);
-        
-        document.getElementById('res-pnr').textContent = data.pnr;
-        document.getElementById('res-train').textContent = data.trainName;
-        document.getElementById('res-route').textContent = `${data.departure} → ${data.destination}`;
-        document.getElementById('res-date').textContent = formatDate(data.journeyDate);
-        
-        const badge = document.getElementById('res-status');
-        badge.textContent = data.status;
-        badge.className = `badge ${data.status === 'ACTIVE' ? 'badge-active' : 'badge-cancelled'}`;
-
-        const tb = document.getElementById('res-passengers');
-        tb.innerHTML = data.passengers.map((p, i) => `
-          <tr>
-            <td style="color:var(--text-muted);">${i+1}</td>
-            <td>
+                const paxList = document.getElementById('r-pax-list');
+                paxList.innerHTML = data.passengers.map(p => {
+                    let statusText = p.status === 'WL' ? `Waitlist (WL ${p.wl_position})` : (p.status === 'CNF' ? 'Confirmed' : 'Cancelled');
+                    let statusColor = p.status === 'WL' ? 'var(--orange)' : (p.status === 'CNF' ? 'var(--green)' : 'var(--red)');
+                    return `
+          <div class="pax-item" style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
               <div style="font-weight:600;">${p.passenger_name}</div>
-              <div style="font-size:0.8rem; color:var(--text-muted);">${p.age} yrs, ${p.gender}</div>
-            </td>
-            <td>
-              <span class="badge ${p.status === 'CNF' ? 'badge-active' : p.status === 'WL' ? 'badge-wl' : 'badge-cancelled'}" style="padding:4px 8px; font-size:0.75rem;">
-                ${p.status}
-              </span>
-            </td>
-            <td>
-              <div style="font-family:monospace; font-weight:600; font-size:1.1rem; color:${p.status==='CNF'?'white':'var(--text-muted)'};">
-                ${p.status === 'CNF' ? p.seat_number : (p.status === 'WL' ? `WL ${p.wl_position}` : '-')}
-              </div>
-            </td>
-          </tr>
-        `).join('');
-
-        document.getElementById('pnr-result').style.display = 'block';
-        
-      } catch (err) {
-        showAlert('pnr-alert', err.message);
-      } finally {
-        setLoading('pnr-btn', false, 'Check Status');
-      }
-    }
-  </script>
+              <div style="font-size:0.8rem;color:var(--text-muted);">${p.age} yrs, ${p.gender}</div>
+            </div>
+            <div style="font-weight:700;color:${statusColor}">${statusText}</div>
+          </div>
+        `}).join('');
+                resDiv.style.display = 'block';
+            } catch (err) {
+                showAlert('pnr-alert', err.message);
+            } finally {
+                setLoading('pnr-btn', false, 'Check Status');
+            }
+        }
+    </script>
 </body>
+
 </html>
