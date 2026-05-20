@@ -79,7 +79,7 @@ public class TrainDAO {
         int availableSeats = 0;
 
         try {
-            String query = "SELECT available_seats FROM train_schedule WHERE train_id = ? AND journey_date = ?";
+            String query = "SELECT (available_gn + available_tq + available_ld + available_hq) AS available_seats FROM schedule_seats WHERE train_id = ? AND journey_date = ?";
             PreparedStatement ps = con.prepareStatement(query);
 
             ps.setInt(1, trainId);
@@ -100,7 +100,7 @@ public class TrainDAO {
 
     public void updateSeats(int trainId, Date date, int seatsBooked) {
         try {
-            String query = "UPDATE train_schedule SET available_seats = available_seats - ? WHERE train_id=? AND journey_date=?";
+            String query = "UPDATE schedule_seats SET available_gn = GREATEST(available_gn - ?, 0) WHERE train_id=? AND journey_date=?";
             PreparedStatement ps = con.prepareStatement(query);
 
             ps.setInt(1, seatsBooked);
@@ -116,7 +116,7 @@ public class TrainDAO {
 
     public void restoreSeats(int trainId, Date date, int seatsToRestore) {
         try {
-            String query = "UPDATE train_schedule SET available_seats = available_seats + ? WHERE train_id=? AND journey_date=?";
+            String query = "UPDATE schedule_seats SET available_gn = available_gn + ? WHERE train_id=? AND journey_date=?";
             PreparedStatement ps = con.prepareStatement(query);
 
             ps.setInt(1, seatsToRestore);
@@ -167,7 +167,7 @@ public class TrainDAO {
 
     public void createScheduleIfNotExists(int trainId, Date date, int totalSeats) {
         try {
-            String checkQuery = "SELECT * FROM train_schedule WHERE train_id=? AND journey_date=?";
+            String checkQuery = "SELECT * FROM schedule_seats WHERE train_id=? AND journey_date=?";
             PreparedStatement check = con.prepareStatement(checkQuery);
 
             check.setInt(1, trainId);
@@ -176,7 +176,7 @@ public class TrainDAO {
             ResultSet rs = check.executeQuery();
 
             if (!rs.next()) {
-                String insertQuery = "INSERT INTO train_schedule(train_id, journey_date, available_seats) VALUES (?, ?, ?)";
+                String insertQuery = "INSERT INTO schedule_seats(train_id, journey_date, available_gn, available_tq, available_ld, available_hq) VALUES (?, ?, ?, 0, 0, 0)";
                 PreparedStatement insert = con.prepareStatement(insertQuery);
 
                 insert.setInt(1, trainId);
@@ -195,13 +195,13 @@ public class TrainDAO {
     public void generateUpcomingSchedules(int daysAhead) {
         try {
             String query = """
-            INSERT INTO train_schedule (train_id, journey_date, available_seats)
-            SELECT t.train_id, DATE_ADD(CURDATE(), INTERVAL ? DAY), t.total_seats
+            INSERT INTO schedule_seats (train_id, journey_date, available_gn, available_tq, available_ld, available_hq)
+            SELECT t.train_id, DATE_ADD(CURDATE(), INTERVAL ? DAY), COALESCE((SELECT SUM(tc.total_seats) FROM train_classes tc WHERE tc.train_id = t.train_id), 0), 0, 0, 0
             FROM trains t
             WHERE NOT EXISTS (
-                SELECT 1 FROM train_schedule ts
-                WHERE ts.train_id = t.train_id
-                AND ts.journey_date = DATE_ADD(CURDATE(), INTERVAL ? DAY)
+                SELECT 1 FROM schedule_seats ss
+                WHERE ss.train_id = t.train_id
+                AND ss.journey_date = DATE_ADD(CURDATE(), INTERVAL ? DAY)
             )
         """;
             PreparedStatement ps = con.prepareStatement(query);

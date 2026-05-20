@@ -36,26 +36,19 @@ router.post('/create', auth, async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        // // 1. Check available seats via schedule_seats (sum all quota columns)
-        // const [schedRows] = await conn.query(
-        //     `SELECT COALESCE(SUM(available_gn + available_tq + available_ld + available_hq), 0) AS available_seats
-        //      FROM schedule_seats WHERE train_id = ? AND journey_date = ?`,
-        //     [trainId, journeyDate]
-        // );
-
-        // // If no schedule_seats row yet, fall back to total train capacity
-        // const [capacityRows] = await conn.query(
-        //     'SELECT COALESCE(SUM(total_seats),0) AS cap FROM train_classes WHERE train_id = ?',
-        //     [trainId]
-        // );
-        // const available = schedRows[0]?.available_seats ?? capacityRows[0]?.cap ?? 0;
-
+        // 1. Check available seats via schedule_seats (sum all quota columns)
         const [schedRows] = await conn.query(
-            `SELECT COALESCE(available_seats, 0) AS available_seats
-     FROM train_schedule WHERE train_id = ? AND journey_date = ?`,
+            `SELECT COALESCE(SUM(available_gn + available_tq + available_ld + available_hq), 0) AS available_seats
+             FROM schedule_seats WHERE train_id = ? AND journey_date = ?`,
             [trainId, journeyDate]
         );
-        const available = schedRows[0]?.available_seats ?? 0;
+
+        // If no schedule_seats row yet, fall back to total train capacity
+        const [capacityRows] = await conn.query(
+            'SELECT COALESCE(SUM(total_seats),0) AS cap FROM train_classes WHERE train_id = ?',
+            [trainId]
+        );
+        const available = schedRows[0]?.available_seats ?? capacityRows[0]?.cap ?? 0;
 
         if (available < passengers.length) {
             await conn.rollback();
@@ -89,24 +82,18 @@ router.post('/create', auth, async (req, res) => {
 
         // 4. Deduct seats from schedule_seats GN quota (upsert pattern)
         const deduct = passengers.length;
-        // const [ssRows] = await conn.query(
-        //     'SELECT id FROM schedule_seats WHERE train_id = ? AND journey_date = ? LIMIT 1',
-        //     [trainId, journeyDate]
-        // );
-        // if (ssRows.length > 0) {
-        //     await conn.query(
-        //         `UPDATE schedule_seats
-        //          SET available_gn = GREATEST(available_gn - ?, 0)
-        //          WHERE train_id = ? AND journey_date = ?`,
-        //         [deduct, trainId, journeyDate]
-        //     );
-        // }
-        await conn.query(
-            `UPDATE train_schedule 
-     SET available_seats = GREATEST(available_seats - ?, 0)
-     WHERE train_id = ? AND journey_date = ?`,
-            [deduct, trainId, journeyDate]
+        const [ssRows] = await conn.query(
+            'SELECT id FROM schedule_seats WHERE train_id = ? AND journey_date = ? LIMIT 1',
+            [trainId, journeyDate]
         );
+        if (ssRows.length > 0) {
+            await conn.query(
+                `UPDATE schedule_seats
+                 SET available_gn = GREATEST(available_gn - ?, 0)
+                 WHERE train_id = ? AND journey_date = ?`,
+                [deduct, trainId, journeyDate]
+            );
+        }
         // If no row exists yet, seats are still conceptually available from train_classes
 
         await conn.commit();

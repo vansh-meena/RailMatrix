@@ -18,16 +18,24 @@ public class BookingDAO {
         try {
             con.setAutoCommit(false); // START TRANSACTION
 
-            String checkQuery = "SELECT available_seats FROM train_schedule WHERE train_id = ? AND journey_date = ?";
+            String checkQuery = "SELECT (available_gn + available_tq + available_ld + available_hq) AS available_seats FROM schedule_seats WHERE train_id = ? AND journey_date = ?";
             PreparedStatement ps1 = con.prepareStatement(checkQuery);
             ps1.setInt(1, trainId);
             ps1.setDate(2, journeyDate);
             ResultSet rs = ps1.executeQuery();
 
+            int available = 0;
             if (rs.next()) {
-                int available = rs.getInt("available_seats");
+                available = rs.getInt("available_seats");
+            } else {
+                String capQuery = "SELECT COALESCE(SUM(total_seats), 0) AS cap FROM train_classes WHERE train_id = ?";
+                PreparedStatement psCap = con.prepareStatement(capQuery);
+                psCap.setInt(1, trainId);
+                ResultSet rsCap = psCap.executeQuery();
+                if (rsCap.next()) available = rsCap.getInt("cap");
+            }
 
-                if (available >= seats) {
+            if (available >= seats) {
 
                     // Generate PNR: RM + YY + MM + 6 random digits
                     String pnr = generatePNR();
@@ -45,7 +53,7 @@ public class BookingDAO {
                     int bookingId = -1;
                     if (rs2.next()) bookingId = rs2.getInt(1);
 
-                    String updateQuery = "UPDATE train_schedule SET available_seats = available_seats - ? WHERE train_id = ? AND journey_date = ?";
+                    String updateQuery = "UPDATE schedule_seats SET available_gn = GREATEST(available_gn - ?, 0) WHERE train_id = ? AND journey_date = ?";
                     PreparedStatement ps3 = con.prepareStatement(updateQuery);
                     ps3.setInt(1, seats);
                     ps3.setInt(2, trainId);
@@ -86,7 +94,7 @@ public class BookingDAO {
                     System.out.println("Not enough seats available!");
                 }
             } else {
-                System.out.println("Train schedule not found!");
+                System.out.println("No seats available or train not found!");
             }
 
             con.rollback(); // ROLLBACK if we didn't return
