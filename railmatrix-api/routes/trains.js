@@ -84,7 +84,7 @@ router.get('/trains/search', async (req, res) => {
         if (fromId === toId)
             return res.status(400).json({ error: 'Source and destination are the same station.' });
 
-        // Step 3 — find trains using train_classes + schedule_seats (multi-class schema)
+        // Step 3 — find trains using train_schedule
         const [trains] = await pool.query(
             `SELECT DISTINCT
                 t.train_id, t.train_name, t.train_type,
@@ -99,25 +99,19 @@ router.get('/trains/search', async (req, res) => {
                       AND r2.stop_number >= r_from.stop_number
                       AND r2.stop_number <= r_to.stop_number
                 ), 0) AS total_km,
-                COALESCE((
-                    SELECT SUM(tc.total_seats) FROM train_classes tc
-                    WHERE tc.train_id = t.train_id
-                ), 0) AS total_seats,
-                COALESCE((
-                    SELECT SUM(ss.available_gn + ss.available_tq + ss.available_ld + ss.available_hq)
-                    FROM schedule_seats ss
-                    WHERE ss.train_id = t.train_id AND ss.journey_date = ?
-                ), (
-                    SELECT SUM(tc.total_seats) FROM train_classes tc WHERE tc.train_id = t.train_id
-                )) AS available_seats
+                t.total_seats AS total_seats,
+                COALESCE(ts.available_seats, t.total_seats) AS available_seats
              FROM trains t
              JOIN routes r_from ON r_from.train_id = t.train_id
                   AND r_from.departure_station_id = ?
              JOIN routes r_to   ON r_to.train_id  = t.train_id
                   AND r_to.destination_station_id  = ?
                   AND r_to.stop_number >= r_from.stop_number
+             LEFT JOIN train_schedule ts
+                  ON ts.train_id = t.train_id
+                  AND ts.journey_date = ?
              ORDER BY dep_time`,
-            [date, fromId, toId]
+            [fromId, toId, date]
         );
 
         const results = trains.map(t => {
