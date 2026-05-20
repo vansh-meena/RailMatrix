@@ -4,10 +4,10 @@
 // POST /api/bookings/cancel          → cancel a booking
 // GET  /api/bookings/:bookingId      → get single booking detail
 
-const express  = require('express');
-const router   = express.Router();
-const pool     = require('../db');
-const auth     = require('../middleware/auth');
+const express = require('express');
+const router = express.Router();
+const pool = require('../db');
+const auth = require('../middleware/auth');
 const nodemailer = require('nodemailer');
 
 // ── Nodemailer (same Gmail SMTP as EmailService.java) ─────────────
@@ -36,19 +36,26 @@ router.post('/create', auth, async (req, res) => {
     try {
         await conn.beginTransaction();
 
-        // 1. Check available seats via schedule_seats (sum all quota columns)
+        // // 1. Check available seats via schedule_seats (sum all quota columns)
+        // const [schedRows] = await conn.query(
+        //     `SELECT COALESCE(SUM(available_gn + available_tq + available_ld + available_hq), 0) AS available_seats
+        //      FROM schedule_seats WHERE train_id = ? AND journey_date = ?`,
+        //     [trainId, journeyDate]
+        // );
+
+        // // If no schedule_seats row yet, fall back to total train capacity
+        // const [capacityRows] = await conn.query(
+        //     'SELECT COALESCE(SUM(total_seats),0) AS cap FROM train_classes WHERE train_id = ?',
+        //     [trainId]
+        // );
+        // const available = schedRows[0]?.available_seats ?? capacityRows[0]?.cap ?? 0;
+
         const [schedRows] = await conn.query(
-            `SELECT COALESCE(SUM(available_gn + available_tq + available_ld + available_hq), 0) AS available_seats
-             FROM schedule_seats WHERE train_id = ? AND journey_date = ?`,
+            `SELECT COALESCE(available_seats, 0) AS available_seats
+     FROM train_schedule WHERE train_id = ? AND journey_date = ?`,
             [trainId, journeyDate]
         );
-
-        // If no schedule_seats row yet, fall back to total train capacity
-        const [capacityRows] = await conn.query(
-            'SELECT COALESCE(SUM(total_seats),0) AS cap FROM train_classes WHERE train_id = ?',
-            [trainId]
-        );
-        const available = schedRows[0]?.available_seats ?? capacityRows[0]?.cap ?? 0;
+        const available = schedRows[0]?.available_seats ?? 0;
 
         if (available < passengers.length) {
             await conn.rollback();
@@ -70,26 +77,36 @@ router.post('/create', auth, async (req, res) => {
             if (!p.name || !p.age || !p.gender)
                 throw new Error('Each passenger must have name, age, and gender.');
             // Try booking_passengers first, fallback column name passenger_name
+            // await conn.query(
+            //     'INSERT INTO booking_passengers (booking_id, passenger_name, age, gender) VALUES (?, ?, ?, ?)',
+            //     [bookingId, p.name.trim(), parseInt(p.age), p.gender]
+            // );
             await conn.query(
-                'INSERT INTO booking_passengers (booking_id, passenger_name, age, gender) VALUES (?, ?, ?, ?)',
-                [bookingId, p.name.trim(), parseInt(p.age), p.gender]
+                'INSERT INTO passengers (booking_id, passenger_name, age, gender, seat_number) VALUES (?, ?, ?, ?, ?)',
+                [bookingId, p.name.trim(), parseInt(p.age), p.gender, passengers.indexOf(p) + 1]
             );
         }
 
         // 4. Deduct seats from schedule_seats GN quota (upsert pattern)
         const deduct = passengers.length;
-        const [ssRows] = await conn.query(
-            'SELECT id FROM schedule_seats WHERE train_id = ? AND journey_date = ? LIMIT 1',
-            [trainId, journeyDate]
+        // const [ssRows] = await conn.query(
+        //     'SELECT id FROM schedule_seats WHERE train_id = ? AND journey_date = ? LIMIT 1',
+        //     [trainId, journeyDate]
+        // );
+        // if (ssRows.length > 0) {
+        //     await conn.query(
+        //         `UPDATE schedule_seats
+        //          SET available_gn = GREATEST(available_gn - ?, 0)
+        //          WHERE train_id = ? AND journey_date = ?`,
+        //         [deduct, trainId, journeyDate]
+        //     );
+        // }
+        await conn.query(
+            `UPDATE train_schedule 
+     SET available_seats = GREATEST(available_seats - ?, 0)
+     WHERE train_id = ? AND journey_date = ?`,
+            [deduct, trainId, journeyDate]
         );
-        if (ssRows.length > 0) {
-            await conn.query(
-                `UPDATE schedule_seats
-                 SET available_gn = GREATEST(available_gn - ?, 0)
-                 WHERE train_id = ? AND journey_date = ?`,
-                [deduct, trainId, journeyDate]
-            );
-        }
         // If no row exists yet, seats are still conceptually available from train_classes
 
         await conn.commit();
@@ -111,7 +128,7 @@ router.post('/create', auth, async (req, res) => {
 
         const [userRows] = await pool.query('SELECT name, email FROM users WHERE user_id = ?', [userId]);
         const train = trainRows[0] || {};
-        const user  = userRows[0] || {};
+        const user = userRows[0] || {};
         const { calculateFare } = require('../utils/fare');
         const farePerPax = calculateFare({
             baseFare: train.base_fare || 50,
@@ -129,7 +146,7 @@ router.post('/create', auth, async (req, res) => {
             message: 'Booking confirmed!',
             bookingId,
             pnr,
-            trainName:    train.train_name,
+            trainName: train.train_name,
             journeyDate,
             totalPassengers: passengers.length,
             totalFare: fare
@@ -173,17 +190,17 @@ router.get('/user/:userId', auth, async (req, res) => {
         );
 
         const bookings = rows.map(b => ({
-            bookingId:       b.booking_id,
-            journeyDate:     b.journey_date,
+            bookingId: b.booking_id,
+            journeyDate: b.journey_date,
             totalPassengers: b.total_passengers,
-            status:          b.status,
-            bookingTime:     b.booking_time,
-            cancelledAt:     b.cancelled_at,
-            refundAmount:    b.refund_amount,
-            trainId:         b.train_id,
-            trainName:       b.train_name,
-            trainType:       b.train_type,
-            totalFare:       Math.round((parseFloat(b.base_fare) + parseFloat(b.fare_per_km) * (b.total_km || 1)) * b.total_passengers)
+            status: b.status,
+            bookingTime: b.booking_time,
+            cancelledAt: b.cancelled_at,
+            refundAmount: b.refund_amount,
+            trainId: b.train_id,
+            trainName: b.train_name,
+            trainType: b.train_type,
+            totalFare: Math.round((parseFloat(b.base_fare) + parseFloat(b.fare_per_km) * (b.total_km || 1)) * b.total_passengers)
         }));
 
         return res.json({ count: bookings.length, bookings });
@@ -225,27 +242,35 @@ router.get('/pnr/:pnr', async (req, res) => {
         const booking = rows[0];
 
         // Fetch passengers from booking_passengers
+        // const [passengers] = await pool.query(
+        //     `SELECT passenger_id, passenger_name, age, gender,
+        //             COALESCE(seat_number, 'TBD') AS seat_number,
+        //             COALESCE(status, 'CNF') AS status,
+        //             COALESCE(wl_position, 0) AS wl_position
+        //      FROM booking_passengers WHERE booking_id = ?`,
+        //     [booking.booking_id]
+        // );
         const [passengers] = await pool.query(
             `SELECT passenger_id, passenger_name, age, gender,
-                    COALESCE(seat_number, 'TBD') AS seat_number,
-                    COALESCE(status, 'CNF') AS status,
-                    COALESCE(wl_position, 0) AS wl_position
-             FROM booking_passengers WHERE booking_id = ?`,
+            COALESCE(seat_number, 0) AS seat_number,
+            'CNF' AS status,
+            0 AS wl_position
+     FROM passengers WHERE booking_id = ?`,
             [booking.booking_id]
         );
 
         return res.json({
-            bookingId:       booking.booking_id,
-            pnr:             booking.pnr,
-            status:          booking.status,
-            journeyDate:     booking.journey_date,
-            bookingTime:     booking.booking_time,
-            classCode:       booking.class_code  || 'SL',
-            quotaCode:       booking.quota_code  || 'GN',
+            bookingId: booking.booking_id,
+            pnr: booking.pnr,
+            status: booking.status,
+            journeyDate: booking.journey_date,
+            bookingTime: booking.booking_time,
+            classCode: booking.class_code || 'SL',
+            quotaCode: booking.quota_code || 'GN',
             totalPassengers: booking.total_passengers,
-            trainName:       booking.train_name,
-            departure:       booking.source_city  || booking.source_station,
-            destination:     booking.dest_city    || booking.dest_station,
+            trainName: booking.train_name,
+            departure: booking.source_city || booking.source_station,
+            destination: booking.dest_city || booking.dest_station,
             passengers
         });
 
@@ -286,14 +311,14 @@ router.get('/:bookingId', auth, async (req, res) => {
         );
 
         return res.json({
-            bookingId:       b.booking_id,
-            status:          b.status,
-            journeyDate:     b.journey_date,
-            bookingTime:     b.booking_time,
-            refundAmount:    b.refund_amount,
-            cancelledAt:     b.cancelled_at,
+            bookingId: b.booking_id,
+            status: b.status,
+            journeyDate: b.journey_date,
+            bookingTime: b.booking_time,
+            refundAmount: b.refund_amount,
+            cancelledAt: b.cancelled_at,
             totalPassengers: b.total_passengers,
-            totalFare:       Math.round((parseFloat(b.base_fare) + parseFloat(b.fare_per_km) * (b.total_km || 1)) * b.total_passengers),
+            totalFare: Math.round((parseFloat(b.base_fare) + parseFloat(b.fare_per_km) * (b.total_km || 1)) * b.total_passengers),
             train: { id: b.train_id, name: b.train_name, type: b.train_type },
             passengers
         });
@@ -349,7 +374,7 @@ router.post('/cancel', auth, async (req, res) => {
         // Calculate refund (same policy as CancelBookingGUI.java)
         const daysUntilJourney = Math.floor((new Date(b.journey_date) - new Date()) / (1000 * 60 * 60 * 24));
         let refundPct = 0;
-        if      (daysUntilJourney > 7) refundPct = 0.90;
+        if (daysUntilJourney > 7) refundPct = 0.90;
         else if (daysUntilJourney > 3) refundPct = 0.50;
         else if (daysUntilJourney > 1) refundPct = 0.25;
 
@@ -358,7 +383,7 @@ router.post('/cancel', auth, async (req, res) => {
             baseFare: b.base_fare || 50, farePerKm: b.fare_per_km || 1,
             distanceKm: b.total_km || 1, trainType: b.train_type || 'Express', classCode: 'SL'
         });
-        const totalFare   = farePerPax * b.total_passengers;
+        const totalFare = farePerPax * b.total_passengers;
         const refundAmount = Math.round(totalFare * refundPct);
 
         // Mark cancelled
@@ -383,7 +408,7 @@ router.post('/cancel', auth, async (req, res) => {
         sendCancellationEmail(user.email, user.name, bookingId, b.train_name, b.journey_date, refundAmount).catch(e => console.error('Email error:', e.message));
 
         return res.json({
-            message:       'Booking cancelled successfully.',
+            message: 'Booking cancelled successfully.',
             bookingId,
             refundAmount,
             refundPercent: refundPct * 100,
@@ -475,8 +500,8 @@ async function sendCancellationEmail(toEmail, userName, bookingId, trainName, jo
 // ── PNR Generator: RM + YY + MM + 6 random digits ─────────────────
 function generatePNR() {
     const now = new Date();
-    const yy  = String(now.getFullYear()).slice(2);
-    const mm  = String(now.getMonth() + 1).padStart(2, '0');
+    const yy = String(now.getFullYear()).slice(2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
     const rnd = String(Math.floor(100000 + Math.random() * 900000));
     return `RM${yy}${mm}${rnd}`;
 }

@@ -1,3 +1,4 @@
+use railway;
 -- DROP ORDER (foreign keys first)
 DROP TABLE IF EXISTS passengers;
 DROP TABLE IF EXISTS bookings;
@@ -13,9 +14,7 @@ CREATE TABLE users (
     user_id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100),
     email VARCHAR(100) UNIQUE,
-    password VARCHAR(100),
-    is_verified TINYINT DEFAULT 0,           -- 0=unverified, 1=verified
-    verification_token VARCHAR(64) DEFAULT NULL  -- email verification token
+    password VARCHAR(100)
 );
 
 -- admins table
@@ -46,19 +45,19 @@ CREATE TABLE trains (
 );
 
 -- bookings table
+
 CREATE TABLE bookings (
-    booking_id INT PRIMARY KEY AUTO_INCREMENT,
-    pnr VARCHAR(14) UNIQUE,                      -- e.g. RM260518839201
-    user_id INT,
-    train_id INT,
-    journey_date DATE,
+    booking_id    INT PRIMARY KEY AUTO_INCREMENT,
+    user_id       INT,
+    train_id      INT,
+    journey_date  DATE,
     total_passengers INT,
-    booking_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20) DEFAULT 'ACTIVE',
-    cancelled_at TIMESTAMP NULL,
+    booking_time  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status        VARCHAR(20) DEFAULT 'ACTIVE',
+    cancelled_at  TIMESTAMP NULL,
     refund_amount DECIMAL(10,2) DEFAULT 0.00,
 
-    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (user_id)  REFERENCES users(user_id),
     FOREIGN KEY (train_id) REFERENCES trains(train_id)
 );
 
