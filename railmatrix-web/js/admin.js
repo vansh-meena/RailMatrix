@@ -106,24 +106,27 @@ async function submitBlock() {
 // ── Trains ────────────────────────────────────────────────────────
 let stationList = [];   // cache for autocomplete in route builder
 
-async function loadStations() {
-  const tb = document.getElementById('stations-tbody');
+async function loadTrains() {
+  const tb = document.getElementById('trains-tbody');
   try {
-    const data = await AdminAPI.getStations();
-    if (!data || data.length === 0) {
-      tb.innerHTML = '<tr><td colspan="4" style="text-align:center;">No stations found.</td></tr>';
+    const data = await AdminAPI.getTrains();
+    const list = data.trains || data || [];
+    if (list.length === 0) {
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No trains found.</td></tr>';
       return;
     }
-    tb.innerHTML = data.slice(0, 50).map(s => `
+    tb.innerHTML = list.map(t => `
       <tr>
-        <td>#${s.station_id}</td>
-        <td style="font-weight:600;">${s.station_name}</td>
-        <td>${s.city || 'N/A'}</td>
-        <td><button class="btn btn-ghost btn-sm" style="color:var(--red);">Delete</button></td>
+        <td style="font-family:monospace;">#${t.train_id}</td>
+        <td style="font-weight:600;">${escHtml(t.train_name)}</td>
+        <td>${escHtml(t.train_type)}</td>
+        <td>${t.total_seats || 0}</td>
+        <td><span class="badge badge-active">Active</span></td>
+        <td><span class="badge badge-purple">${t.route_stops || 0} stops</span></td>
       </tr>
     `).join('');
   } catch (err) {
-    tb.innerHTML = `<tr><td colspan="4" style="color:red; text-align:center;">${err.message}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="6" style="color:var(--red);text-align:center;">${err.message}</td></tr>`;
   }
 }
 
@@ -173,7 +176,7 @@ async function saveTrain() {
   // Gather stops — match station names to IDs from cached list
   const stopEls = document.querySelectorAll('#route-builder .route-stop');
   const stops = [];
-  for (let i = 0; i < stopEls.el; i++) {
+  for (let i = 0; i < stopEls.length; i++) {
     const el = stopEls[i];
     const stName = el.querySelector('.rs-station').value.trim();
     const depTime = el.querySelector('.rs-dep').value;

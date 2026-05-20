@@ -146,23 +146,14 @@ router.get('/trains', adminAuth, async (req, res) => {
     try {
         const [rows] = await pool.query(
             `SELECT t.train_id, t.train_name, t.train_type,
-                    t.total_seats, t.base_fare, t.fare_per_km,
+                    COALESCE((SELECT SUM(tc.total_seats) FROM train_classes tc WHERE tc.train_id = t.train_id), 0) AS total_seats,
+                    t.base_fare, t.fare_per_km,
                     COUNT(DISTINCT r.route_id) AS route_stops
              FROM trains t
              LEFT JOIN routes r ON r.train_id = t.train_id
              GROUP BY t.train_id
              ORDER BY t.train_id`
         );
-        // const [rows] = await pool.query(
-        //     `SELECT t.train_id, t.train_name, t.train_type,
-        //             COALESCE((SELECT SUM(tc.total_seats) FROM train_classes tc WHERE tc.train_id = t.train_id), 0) AS total_seats,
-        //             t.base_fare, t.fare_per_km,
-        //             COUNT(DISTINCT r.route_id) AS route_stops
-        //      FROM trains t
-        //      LEFT JOIN routes r ON r.train_id = t.train_id
-        //      GROUP BY t.train_id
-        //      ORDER BY t.train_id`
-        // );
         return res.json({ count: rows.length, trains: rows });
     } catch (err) {
         console.error('Admin trains error:', err);

@@ -1,7 +1,9 @@
 // js/api.js — RailMatrix API client
 // All fetch calls to the Node.js backend go through here
 
-const API = 'https://railmatrix-production.up.railway.app/api';
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname
+  ? 'http://localhost:3000/api'
+  : 'https://railmatrix-production.up.railway.app/api';
 
 // ── Token helpers ───────────────────────────────────────────────
 const Auth = {
@@ -38,7 +40,7 @@ async function apiFetch(path, opts = {}) {
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
-window.apiFetch = (path, opts) => apiFetch(path, opts);
+window.apiFetch = apiFetch;
 
 
 // ── Admin Base fetch ────────────────────────────────────────────
@@ -79,7 +81,7 @@ const AdminAPI = {
   },
   async getStats() { return adminFetch('/admin/stats'); },
   async getUsers() { return adminFetch('/admin/users'); },
-  async getStations() { return adminFetch('/stations/suggest?q=a'); },
+  async getTrains() { return adminFetch('/admin/trains'); },
   async getBookings() { return adminFetch('/admin/bookings'); },
   async getStations() { return adminFetch('/stations/suggest?q='); },
   async createTrain(payload) {
