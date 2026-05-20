@@ -231,6 +231,20 @@ router.post('/trains', adminAuth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────
+// GET /api/admin/stations  [admin auth]
+// All stations
+// ─────────────────────────────────────────────────────────────────
+router.get('/stations', adminAuth, async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM stations ORDER BY station_name');
+        return res.json({ count: rows.length, stations: rows });
+    } catch (err) {
+        console.error('Admin stations error:', err);
+        return res.status(500).json({ error: 'Failed to fetch stations.' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────
 // POST /api/admin/stations  [admin auth]
 // Body: { stationCode, stationName, city }
 // ─────────────────────────────────────────────────────────────────

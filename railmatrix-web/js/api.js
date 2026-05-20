@@ -83,7 +83,7 @@ const AdminAPI = {
   async getUsers() { return adminFetch('/admin/users'); },
   async getTrains() { return adminFetch('/admin/trains'); },
   async getBookings() { return adminFetch('/admin/bookings'); },
-  async getStations() { return adminFetch('/stations/suggest?q='); },
+  async getStations() { return adminFetch('/admin/stations'); },
   async createTrain(payload) {
     return adminFetch('/admin/trains', { method: 'POST', body: JSON.stringify(payload) });
   },
